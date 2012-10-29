@@ -13,6 +13,11 @@
 #include <stdlib.h>
 #include <cstring>
 
+struct addrinfo hints;
+struct addrinfo *res;
+
+using namespace std;
+
 int main(int argc, char* argv[]) {
 
 	/*
@@ -71,6 +76,49 @@ int main(int argc, char* argv[]) {
 	printf("%s\n", usersString);
 	std::cout << "Time:  ";
 	printf("%s\n", timeString);
+
+	memset(&hints, 0, sizeof hints);
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	int sockfd = -1;
+	int status = -1;
+
+	getaddrinfo("localhost", "2012", &hints, &res);
+
+	sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+	printf("SOCKET returned: %i\n", sockfd);
+	fflush(stdout);
+
+	struct addrinfo *test = res;
+	while (test != NULL){
+		if ( (status = bind(sockfd, test->ai_addr, test->ai_addrlen)) == -1 ) {
+			perror("Bind failed.");
+			fflush(stdout);
+			test = test->ai_next;
+			continue;
+		}
+
+		printf("BIND returned: %d\n", status);
+		fflush(stdout);
+		//if(status != -1) break;
+		break;
+		//i=i->ai_next;
+	}
+
+	status = listen(sockfd, 5);
+	printf("LISTEN returned: %i\n", status);
+	fflush(stdout);
+
+	struct sockaddr *addr;
+	socklen_t *addrlen;
+
+	while(accept(sockfd, addr, addrlen) == -1){
+		printf("waiting\n");
+		fflush(stdout);
+	}
+
+	printf("ACCEPTED!");
+	fflush(stdout);
 
 	//... some more code
 	std::cin.get();
