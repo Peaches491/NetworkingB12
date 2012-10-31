@@ -119,7 +119,27 @@ int main(int argc, char* argv[]) {
 
 	printf("ACCEPTED!");
 	fflush(stdout);
+	fflush(stdin);
 
+	string input = "";
+	int bytesIn = 0;
+
+	while(input!="quit"){
+		bytesIn = recv(sockfd, &input, 10, 0);
+
+		if(bytesIn == 0){
+			cout<<"connection closed by client."<<endl<<"exiting..."<<endl;
+			break;
+		}
+		else{
+			cout << "RX: got \"" << input << "\", echoing back"<<endl;
+
+			input = "echo: "+input;
+
+			send(sockfd, &input, sizeof(input), 0);
+		}
+	}
+	close(sockfd);
 	//... some more code
 	std::cin.get();
 }

@@ -28,7 +28,7 @@ int main(int argc, char* argv[]) {
 
 	getaddrinfo("127.0.0.1", "2012", &hints, &res);
 
-	return 0;
+	//return 0;
 
 	sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 
@@ -37,6 +37,28 @@ int main(int argc, char* argv[]) {
 	int result = connect(sockfd, res->ai_addr, res->ai_addrlen);
 
 	printf("Connection Result: %i\n", result);
+	fflush(stdin);
 
+	char* kbinput = "benderisgreat";
+	char* echoinput = "                                             \0";
+	int readsize;
+
+	//snprintf(kbinput, 3,"%d", 10);
+
+	while(strcmp(kbinput, "quit") != 0){
+		send(sockfd, &kbinput, sizeof(kbinput), 0);
+		readsize = recv(sockfd, &echoinput, 15, 0);
+
+		if(readsize==0){
+			cout<<"connection closed by server."<<endl;
+			break;
+		}
+		else{
+			cout<<echoinput<<endl;
+			//sprintf(kbinput,"%l", random());
+		}
+
+	}
+	close(sockfd);
 	return 0;
 }
