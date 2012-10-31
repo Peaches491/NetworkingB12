@@ -45,16 +45,15 @@ int main(int argc, char* argv[]) {
 
 	//snprintf(kbinput, 3,"%d", 10);
 
-	while(strcmp(kbinput, "quit") != 0){
+	while (strcmp(kbinput, "quit") != 0) {
 		send(sockfd, &kbinput, sizeof(kbinput), 0);
 		readsize = recv(sockfd, &echoinput, 15, 0);
 
-		if(readsize==0){
-			cout<<"connection closed by server."<<endl;
+		if (readsize == 0) {
+			cout << "connection closed by server." << endl;
 			break;
-		}
-		else{
-			cout<<echoinput<<endl;
+		} else {
+			cout << echoinput << endl;
 			//sprintf(kbinput,"%l", random());
 		}
 

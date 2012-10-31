@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <cstring>
+#include <cerrno>
 
 struct addrinfo hints;
 struct addrinfo *res;
@@ -83,15 +84,15 @@ int main(int argc, char* argv[]) {
 	int sockfd = -1;
 	int status = -1;
 
-	getaddrinfo("localhost", "2012", &hints, &res);
+	getaddrinfo("127.0.0.1", "2012", &hints, &res);
 
 	sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 	printf("SOCKET returned: %i\n", sockfd);
 	fflush(stdout);
 
 	struct addrinfo *test = res;
-	while (test != NULL){
-		if ( (status = bind(sockfd, test->ai_addr, test->ai_addrlen)) == -1 ) {
+	while (test != NULL) {
+		if ((status = bind(sockfd, test->ai_addr, test->ai_addrlen)) == -1) {
 			perror("Bind failed.");
 			fflush(stdout);
 			test = test->ai_next;
@@ -109,34 +110,50 @@ int main(int argc, char* argv[]) {
 	printf("LISTEN returned: %i\n", status);
 	fflush(stdout);
 
-	struct sockaddr *addr;
-	socklen_t *addrlen;
+	struct sockaddr_storage addr;
+	socklen_t sin_size;
 
-	while(accept(sockfd, addr, addrlen) == -1){
-		printf("waiting\n");
-		fflush(stdout);
+	int acceptfd = -1;
+	while (true) {
+		sin_size = sizeof addr;
+		acceptfd = accept(sockfd, (struct sockaddr *)&addr, &sin_size);
+		if (acceptfd <= 0) {
+			printf("%d\n", acceptfd);
+			perror("Connection Attempted. Failed with error");
+			fflush(stdout);
+			continue;
+		}
+		break;
 	}
 
-	printf("ACCEPTED!");
+	printf("ACCEPTED!\n");
 	fflush(stdout);
 	fflush(stdin);
 
-	string input = "";
+	char input [50];
 	int bytesIn = 0;
 
-	while(input!="quit"){
-		bytesIn = recv(sockfd, &input, 10, 0);
+	while (strcmp(input, "quit") != 0) {
 
-		if(bytesIn == 0){
-			cout<<"connection closed by client."<<endl<<"exiting..."<<endl;
+		bytesIn = recv(acceptfd, &input, strlen(input) - 1, 0);
+
+		if (bytesIn <= -1) {
+			//cout<<"connection closed by client."<<endl<<"exiting..."<<endl;
+			perror("RECV Error");
 			break;
-		}
-		else{
-			cout << "RX: got \"" << input << "\", echoing back"<<endl;
+		} else {
+			//cout << "RX: got \"" << input << "\", echoing back"<<endl;
 
-			input = "echo: "+input;
+			input[bytesIn] = '\0';
+			printf("server received: '%s'\n", input);
 
-			send(sockfd, &input, sizeof(input), 0);
+			char msg [50];
+			msg[0] = '\0';
+
+			strcat(msg, "echo: ");
+			strcat(msg, input);
+			strcat(msg, "\n");
+			send(acceptfd, msg, strlen(msg), 0);
 		}
 	}
 	close(sockfd);
