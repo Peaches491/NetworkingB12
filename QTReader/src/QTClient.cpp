@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <cstring>
 
+
 using namespace std;
 
 int main(int argc, char* argv[]) {
@@ -23,6 +24,7 @@ int main(int argc, char* argv[]) {
 	int sockfd;
 
 	memset(&hints, 0, sizeof hints);
+	memset(&res, 0, sizeof res);
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 
@@ -39,20 +41,38 @@ int main(int argc, char* argv[]) {
 	printf("Connection Result: %i\n", result);
 	fflush(stdin);
 
-	char* kbinput = "benderisgreat";
-	char* echoinput = "                                             \0";
-	int readsize;
+	int bufSize = 512;
+	char kbinput [bufSize];
+	memset(&kbinput, 0, sizeof kbinput);
+	char echoinput [bufSize];
+	memset(&echoinput, 0, sizeof echoinput);
+	int readSize;
 
 	//snprintf(kbinput, 3,"%d", 10);
 
-	while (strcmp(kbinput, "quit") != 0) {
-		send(sockfd, &kbinput, sizeof(kbinput), 0);
-		readsize = recv(sockfd, &echoinput, 15, 0);
+	while (true) {
 
-		if (readsize == 0) {
+		std::cout << "Checking for \"quit\"... ";
+		if(strcmp(kbinput, "quit") == 0){
+			break;
+		}
+		std::cout << "Done." << endl;
+
+		std::cout << "Sending... ";
+		send(sockfd, &kbinput, sizeof(kbinput), 0);
+		std::cout << "Sent." << endl;
+
+		std::cout << "Receiving... ";
+		readSize = recv(sockfd, &echoinput, sizeof(echoinput), 0);
+		std::cout << "Received." << endl;
+
+		if (readSize == 0) {
 			cout << "connection closed by server." << endl;
 			break;
 		} else {
+			std::cout << "Bytes Received: ";
+			std::cout << readSize;
+			std::cout << " Data: ";
 			cout << echoinput << endl;
 			//sprintf(kbinput,"%l", random());
 		}

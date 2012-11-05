@@ -1,15 +1,25 @@
-/*
- * QTSession.cpp
- *
- *  Created on: Oct 27, 2012
- *      Author: cs3516
- */
+#include "QTSession.h"
+#include <string>
+#include <iostream>
 
+using std::string;
 
-int session() {
-	//cout << "Hello World!!!" << endl; // prints Hello World!!!
+QTSession::QTSession(int sockfd) {
+	this->dataSocket = sockfd;
 
+	std::cout << QTSession::getCode() << "\n";
+}
 
+QTSession::~QTSession() {
+	// delete image file
+}
 
-	return 0;
+//Send confirmation. Recieve QR Code data. return path to code
+string QTSession::getCode(){
+	return string("Your Mom!");
+}
+
+// exec java with path to image file.
+string QTSession::interpretCode(){
+	return string("Your Dad!");
 }

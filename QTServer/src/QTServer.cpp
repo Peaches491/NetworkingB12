@@ -13,9 +13,11 @@
 #include <stdlib.h>
 #include <cstring>
 #include <cerrno>
+#include "QTSession.h"
 
 struct addrinfo hints;
 struct addrinfo *res;
+char input [500];
 
 using namespace std;
 
@@ -46,7 +48,7 @@ int main(int argc, char* argv[]) {
 	for (int i = 1; i < argc; i++) {
 		if ((i + 1) != argc) {
 
-			//Port
+				//Port
 			if (strcmp(argv[i], "-p") == 0) {
 				portString = argv[i + 1];
 
@@ -78,85 +80,113 @@ int main(int argc, char* argv[]) {
 	std::cout << "Time:  ";
 	printf("%s\n", timeString);
 
-	memset(&hints, 0, sizeof hints);
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	int sockfd = -1;
-	int status = -1;
 
-	getaddrinfo("127.0.0.1", "2012", &hints, &res);
+	QTSession test(124);
 
-	sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-	printf("SOCKET returned: %i\n", sockfd);
-	fflush(stdout);
 
-	struct addrinfo *test = res;
-	while (test != NULL) {
-		if ((status = bind(sockfd, test->ai_addr, test->ai_addrlen)) == -1) {
-			perror("Bind failed.");
-			fflush(stdout);
-			test = test->ai_next;
-			continue;
-		}
 
-		printf("BIND returned: %d\n", status);
+	bool runServer = true;
+	if(runServer){
+
+		memset(&hints, 0, sizeof hints);
+		hints.ai_family = AF_UNSPEC;
+		hints.ai_socktype = SOCK_STREAM;
+		int sockfd = -1;
+		int status = -1;
+
+		getaddrinfo("127.0.0.1", "2012", &hints, &res);
+
+		sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+		printf("SOCKET returned: %i\n", sockfd);
 		fflush(stdout);
-		//if(status != -1) break;
-		break;
-		//i=i->ai_next;
-	}
 
-	status = listen(sockfd, 5);
-	printf("LISTEN returned: %i\n", status);
-	fflush(stdout);
+		struct addrinfo *test = res;
+		while (test != NULL) {
+			if ((status = bind(sockfd, test->ai_addr, test->ai_addrlen)) == -1) {
+				perror("Bind failed.");
+				fflush(stdout);
+				test = test->ai_next;
+				continue;
+			}
 
-	struct sockaddr_storage addr;
-	socklen_t sin_size;
-
-	int acceptfd = -1;
-	while (true) {
-		sin_size = sizeof addr;
-		acceptfd = accept(sockfd, (struct sockaddr *)&addr, &sin_size);
-		if (acceptfd <= 0) {
-			printf("%d\n", acceptfd);
-			perror("Connection Attempted. Failed with error");
+			printf("BIND returned: %d\n", status);
 			fflush(stdout);
-			continue;
-		}
-		break;
-	}
-
-	printf("ACCEPTED!\n");
-	fflush(stdout);
-	fflush(stdin);
-
-	char input [50];
-	int bytesIn = 0;
-
-	while (strcmp(input, "quit") != 0) {
-
-		bytesIn = recv(acceptfd, &input, strlen(input) - 1, 0);
-
-		if (bytesIn <= -1) {
-			//cout<<"connection closed by client."<<endl<<"exiting..."<<endl;
-			perror("RECV Error");
+			//if(status != -1) break;
 			break;
-		} else {
-			//cout << "RX: got \"" << input << "\", echoing back"<<endl;
-
-			input[bytesIn] = '\0';
-			printf("server received: '%s'\n", input);
-
-			char msg [50];
-			msg[0] = '\0';
-
-			strcat(msg, "echo: ");
-			strcat(msg, input);
-			strcat(msg, "\n");
-			send(acceptfd, msg, strlen(msg), 0);
+			//i=i->ai_next;
 		}
+
+		status = listen(sockfd, 5);
+		printf("LISTEN returned: %i\n", status);
+		fflush(stdout);
+
+		struct sockaddr_storage addr;
+		socklen_t sin_size;
+
+		int acceptfd = -1;
+		while (true) {
+			sin_size = sizeof addr;
+			acceptfd = accept(sockfd, (struct sockaddr *)&addr, &sin_size);
+			if (acceptfd <= 0) {
+				printf("%d\n", acceptfd);
+				perror("Connection Attempted. Failed with error");
+				fflush(stdout);
+				continue;
+			}
+			break;
+		}
+
+		printf("ACCEPTED!\n");
+		fflush(stdout);
+		fflush(stdin);
+
+
+
+		int bytesIn = 0;
+		memset(&input, 0, sizeof input);
+
+		while (true) {
+
+			std::cout << "Testing for quit message... ";
+			if(strcmp(input, "quit") == 0){
+				break;
+			}
+			std::cout << "Not quitting" << endl ;
+
+			std::cout << "Receiving... ";
+			bytesIn = recv(acceptfd, &input, sizeof(input), 0);
+			std::cout << "Received" << endl;
+
+			if (bytesIn <= -1) {
+				//cout<<"connection closed by client."<<endl<<"exiting..."<<endl;
+				perror("RECV Error");
+				break;
+			} else {
+				//cout << "RX: got \"" << input << "\", echoing back"<<endl;
+
+				std::cout << "Adding null terminator... ";
+				input[bytesIn] = '\0';
+				std::cout << "Done." << endl;
+
+				printf("server received: '%s'\n", input);
+
+
+				char msg [550];
+				msg[0] = '\0';
+
+				//std::cout << "Appending Echo ";
+				//std::cout << strcat(msg, "echo: ") << endl;
+				std::cout << "Adding input... ";
+				std::cout << strcat(msg, input) << endl;
+
+				std::cout << "Sending response... ";
+				send(acceptfd, msg, strlen(msg), 0);
+				std::cout << "Done." << endl;
+			}
+		}
+		close(sockfd);
 	}
-	close(sockfd);
+
 	//... some more code
 	std::cin.get();
 }
