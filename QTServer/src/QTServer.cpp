@@ -175,9 +175,11 @@ int main(int argc, char* argv[]) {
 			}
 			//std::cout << "Not quitting" << endl ;
 
+
+			int messageSize = 0;
 			//std::cout << "Receiving... ";
-			bytesIn = recv(acceptfd, &inputBuffer, sizeof(inputBuffer), 0);
-			checkRECV(bytesIn, inputBuffer);
+			bytesIn = recv(acceptfd, &messageSize, sizeof(int), 0);
+			//checkRECV(bytesIn, inputBuffer);
 			//std::cout << "Received" << endl;
 
 			// Start assembling the image file.
@@ -189,7 +191,7 @@ int main(int argc, char* argv[]) {
 			// Take in the image size
 			msg.size = -1;
 			std::cout << "Reading in size of data... ";
-			msg.size = atoi(inputBuffer);
+			msg.size = messageSize;
 			std::cout << "Done." << endl;
 			std::cout << "Size was " << msg.size << endl;
 
@@ -207,7 +209,7 @@ int main(int argc, char* argv[]) {
 			ostringstream ss;
 			mkdir("images/", S_IRWXU | S_IRWXG | S_IRWXO);
 			ss << getpid();
-			char* filename = (char*)(std::string("images/") + (char*)ss.str().c_str()).c_str();
+			char* filename = (char*)(std::string("images/") + (char*)ss.str().c_str() + std::string(".png")).c_str();
 			file.open(filename, ios::app);
 
 			int size = 0;

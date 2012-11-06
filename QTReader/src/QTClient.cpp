@@ -53,42 +53,53 @@ int main(int argc, char* argv[]) {
 	unsigned int imagesize;
 	string data;
 	string tempdata;
-	unsigned int datasize=0;
-	unsigned int response=0;
+	unsigned int datasize = 0;
+	unsigned int response = 0;
 	//snprintf(kbinput, 3,"%d", 10);
 
 	while (true) {
 
 		cout << "enter the path of an image: ";
-		cin  >> kbinput;
+		cin >> kbinput;
+
+
+		FILE *stream = popen((std::string("echo ") + kbinput.c_str()).c_str(), "r");
+
+		char buf [512];
+		fgets(buf, sizeof(buf), stream);
+
+		cout << buf << endl;
+
+		string path(buf);
+
+		path = path.substr(0, path.size()-1);
+		cout << path << endl;
 
 		//std::cout << "Checking for \"quit\"... ";
-		if(kbinput.compare("quit\n") == 0){
+		if (path.compare("quit\n") == 0) {
 			break;
 		}
 		//std::cout << "Done." << endl;
 
 		//if(valid path){
 		//open the image
-		//kbinput = kbinput.substr(0, kbinput.length());
+		image.open(path.c_str(), ios::in | ios::binary);
 
-		char* wd = new char[500];
-		//wd = kbinput;
-
-		//kbinput = getwd();
-		image.open(kbinput.c_str(), ios::in|ios::binary);
-
-		if(!image.is_open()){
-			cout<<"error opening image "<<kbinput<<endl;
+		if (!image.is_open()) {
+			cout << "error opening image " << path << endl;
 
 			break;
 		}
 
+		image.seekg(0, ios::beg);
+		int beginning = (int) image.tellg();
 		//determine the image's size
 		image.seekg(0, ios::end);
-		imagesize =    (int)image.tellg();//-imagesize;
+		int end = (int) image.tellg();		//-imagesize;
 
-		cout<<"image size: "<<imagesize<<" B"<<endl;
+		imagesize = end - beginning;
+
+		cout << "image size: " << imagesize << " B" << endl;
 
 		//seek to the beginning of the image
 		image.seekg(0, ios::beg);
@@ -101,39 +112,60 @@ int main(int argc, char* argv[]) {
 		//image.
 		//send the image size and data
 		send(sockfd, &imagesize, 4, 0);
-		cout<<"sent image size."<<endl;//: "<<imagesize<<"B"<<endl;
+		cout << "sent image size." << endl;		//: "<<imagesize<<"B"<<endl;
 
 		//wait for an OK from the server
 		recv(sockfd, &response, 1, 0);
-		cout<<"got response: size"<<(response==0? "OK": "NOT OK")<<endl;
-		if(response >0) continue;
+		cout << "got response: size" << (response == 0 ? "OK" : "NOT OK")
+				<< endl;
+		if (response > 0)
+			continue;
 
 		//send image
-		send(sockfd, &contents, imagesize, 0);
-		cout<<"sent image data: "<<contents<<endl;
+
+		unsigned int dataSent = 0;
+		while (dataSent < imagesize) {
+			std::cout << "Byte " << dataSent << endl;
+			send(sockfd, &(contents[dataSent]), sizeof(contents[0]), 0);
+			dataSent++;
+			if (dataSent >= imagesize) break;
+			//std::cout << "Sent " << bytesIn << " bytes." << endl;
+		}
+
+
+		cout << "sent image data: " << contents << endl;
 
 		//free dat RAM
 		delete[] contents;
 
 		//wait for server response code
 		recv(sockfd, &response, 4, 0);
-		cout<<"server response: "<<(response==0? "QR CODE OK": (response==1? "FAILED" : (response==2? "TIMED OUT":(response==3? "RATE EXCEEDED": "MISC ERROR"))))<<endl;
-		if(response>0) continue;
+		cout << "server response: "
+				<< (response == 0 ?
+						"QR CODE OK" :
+						(response == 1 ?
+								"FAILED" :
+								(response == 2 ?
+										"TIMED OUT" :
+										(response == 3 ?
+												"RATE EXCEEDED" : "MISC ERROR"))))
+				<< endl;
+		if (response > 0)
+			continue;
 
 		//
 		recv(sockfd, &datasize, 4, 0);
-		cout<<"expecting data of length "<<datasize<<endl;
-
+		cout << "expecting data of length " << datasize << endl;
 
 		data = "";
 		readSize = 0;
-		do{
-			readSize+=recv(sockfd, &tempdata, datasize, 0);
+		do {
+			readSize += recv(sockfd, &tempdata, datasize, 0);
 			data += tempdata;
 			tempdata = "";
-		}while(readSize<datasize);
-		//account for the possibility of data getting smeared across packets
+		} while (readSize < datasize);
 
+		//account for the possibility of data getting smeared across packets
 
 		//}
 
@@ -156,8 +188,6 @@ int main(int argc, char* argv[]) {
 			//sprintf(kbinput,"%l", random());
 		}
 
-
-
 		//1: string
 		//2: image
 		//	4 bytes for size
@@ -169,21 +199,21 @@ int main(int argc, char* argv[]) {
 	return 0;
 }
 /*
-void receive(int __fd, void *__buf, size_t __n){
-	string tempdata="";
-	int readSize = 0;
+ void receive(int __fd, void *__buf, size_t __n){
+ string tempdata="";
+ int readSize = 0;
 
-	do{
-		readSize+=recv(__fd, &tempdata, __n, 0);
-		__buf += tempdata;
-		tempdata = "";
-	}while(readSize<__n);
-}
+ do{
+ readSize+=recv(__fd, &tempdata, __n, 0);
+ __buf += tempdata;
+ tempdata = "";
+ }while(readSize<__n);
+ }
 
-void sanitize_path(string *path){
-	string cwd;
-	getcwd(&cwd, 200);
-	path->=='.'
-}
+ void sanitize_path(string *path){
+ string cwd;
+ getcwd(&cwd, 200);
+ path->=='.'
+ }
 
-*/
+ */
