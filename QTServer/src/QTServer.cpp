@@ -30,13 +30,11 @@ char inputBuffer[512]; //Initial input buffer
 struct addrinfo hints;
 struct addrinfo *res;
 
-
 typedef struct _message {
 	messageCode code;
 	int size;
 	void* data;
 } message;
-
 
 // Function Declarations
 int checkRECV(int bytesIn, void* data);
@@ -118,10 +116,11 @@ int main(int argc, char* argv[]) {
 		fflush(stdout);
 
 		int yes = 1;
-		if (setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR,&yes,sizeof(int)) == -1) {
-				    perror("setsockopt");
-				    exit(1);
-				}
+		if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int))
+				== -1) {
+			perror("setsockopt");
+			exit(1);
+		}
 
 		struct addrinfo *test = res;
 		while (test != NULL) {
@@ -175,7 +174,6 @@ int main(int argc, char* argv[]) {
 			}
 			//std::cout << "Not quitting" << endl ;
 
-
 			int messageSize = 0;
 			//std::cout << "Receiving... ";
 			bytesIn = recv(acceptfd, &messageSize, sizeof(int), 0);
@@ -195,32 +193,32 @@ int main(int argc, char* argv[]) {
 			std::cout << "Done." << endl;
 			std::cout << "Size was " << msg.size << endl;
 
-			if(msg.size == -1){
+			if (msg.size == -1) {
 				exit(0);
 			}
 
-
 			int text = 0;
 			send(acceptfd, &text, sizeof(text), 0);
-
 
 			ofstream file;
 
 			ostringstream ss;
 			mkdir("images/", S_IRWXU | S_IRWXG | S_IRWXO);
 			ss << getpid();
-			char* filename = (char*)(std::string("images/") + (char*)ss.str().c_str() + std::string(".png")).c_str();
+			char* filename = (char*) (std::string("images/")
+					+ (char*) ss.str().c_str() + std::string(".png")).c_str();
 			file.open(filename, ios::app);
 
 			int size = 0;
-			while (size < msg.size){
+			while (size < msg.size) {
 				bytesIn = recv(acceptfd, &inputBuffer, sizeof(inputBuffer), 0);
 
-				for(int i = 0; i < bytesIn; i++){
+				for (int i = 0; i < bytesIn; i++) {
 					std::cout << "Byte " << size << endl;
 					file << inputBuffer[i];
 					size++;
-					if(size >= msg.size)break;
+					if (size >= msg.size)
+						break;
 				}
 
 				std::cout << "Added " << bytesIn << " bytes." << endl;
@@ -231,23 +229,23 @@ int main(int argc, char* argv[]) {
 			std::cout << "It closed!" << endl;
 
 			/*std::cout << "Adding null terminator... ";
-			inputBuffer[bytesIn] = '\0';
-			std::cout << "Done." << endl;
+			 inputBuffer[bytesIn] = '\0';
+			 std::cout << "Done." << endl;
 
-			printf("server received: '%s'\n", (char*) msg.data);
+			 printf("server received: '%s'\n", (char*) msg.data);
 
-			char text[550];
-			text[0] = '\0';
+			 char text[550];
+			 text[0] = '\0';
 
-			std::cout << "Appending Echo ";
-			std::cout << strcat(text, "echo: ") << endl;
+			 std::cout << "Appending Echo ";
+			 std::cout << strcat(text, "echo: ") << endl;
 
-			std::cout << "Adding input... ";
-			std::cout << strcat(text, inputBuffer) << endl;
+			 std::cout << "Adding input... ";
+			 std::cout << strcat(text, inputBuffer) << endl;
 
-			std::cout << "Sending response... ";
-			send(acceptfd, text, strlen(text), 0);
-			std::cout << "Done." << endl;*/
+			 std::cout << "Sending response... ";
+			 send(acceptfd, text, strlen(text), 0);
+			 std::cout << "Done." << endl;*/
 		}
 		close(sockfd);
 	}
@@ -256,6 +254,17 @@ int main(int argc, char* argv[]) {
 	std::cin.get();
 }
 //}
+
+string interpretCode() {
+	FILE *stream = popen((std::string("echo ")).c_str(), "r");
+
+	char buf[512];
+	fgets(buf, sizeof(buf), stream);
+
+	cout << buf << endl;
+
+	string path(buf);
+}
 
 int checkRECV(int bytesIn, void* data) {
 	if (bytesIn <= -1) {
