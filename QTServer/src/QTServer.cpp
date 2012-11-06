@@ -13,13 +13,33 @@
 #include <stdlib.h>
 #include <cstring>
 #include <cerrno>
+#include <algorithm>
+#include <iostream>
+#include <fstream>
+#include <sys/types.h>
+#include <unistd.h>
+#include <sstream>
+#include <sys/stat.h>
+#include "QTServer.h"
 #include "QTSession.h"
 
+using namespace std;
+
+// Global Variables
+char inputBuffer[512]; //Initial input buffer
 struct addrinfo hints;
 struct addrinfo *res;
-char input [500];
 
-using namespace std;
+
+typedef struct _message {
+	messageCode code;
+	int size;
+	void* data;
+} message;
+
+
+// Function Declarations
+int checkRECV(int bytesIn, void* data);
 
 int main(int argc, char* argv[]) {
 
@@ -48,7 +68,7 @@ int main(int argc, char* argv[]) {
 	for (int i = 1; i < argc; i++) {
 		if ((i + 1) != argc) {
 
-				//Port
+			//Port
 			if (strcmp(argv[i], "-p") == 0) {
 				portString = argv[i + 1];
 
@@ -80,13 +100,10 @@ int main(int argc, char* argv[]) {
 	std::cout << "Time:  ";
 	printf("%s\n", timeString);
 
-
 	QTSession test(124);
 
-
-
 	bool runServer = true;
-	if(runServer){
+	if (runServer) {
 
 		memset(&hints, 0, sizeof hints);
 		hints.ai_family = AF_UNSPEC;
@@ -100,10 +117,17 @@ int main(int argc, char* argv[]) {
 		printf("SOCKET returned: %i\n", sockfd);
 		fflush(stdout);
 
+		int yes = 1;
+		if (setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR,&yes,sizeof(int)) == -1) {
+				    perror("setsockopt");
+				    exit(1);
+				}
+
 		struct addrinfo *test = res;
 		while (test != NULL) {
-			if ((status = bind(sockfd, test->ai_addr, test->ai_addrlen)) == -1) {
-				perror("Bind failed.");
+			if ((status = bind(sockfd, test->ai_addr, test->ai_addrlen))
+					== -1) {
+				perror("Bind failed");
 				fflush(stdout);
 				test = test->ai_next;
 				continue;
@@ -126,7 +150,7 @@ int main(int argc, char* argv[]) {
 		int acceptfd = -1;
 		while (true) {
 			sin_size = sizeof addr;
-			acceptfd = accept(sockfd, (struct sockaddr *)&addr, &sin_size);
+			acceptfd = accept(sockfd, (struct sockaddr *) &addr, &sin_size);
 			if (acceptfd <= 0) {
 				printf("%d\n", acceptfd);
 				perror("Connection Attempted. Failed with error");
@@ -140,49 +164,88 @@ int main(int argc, char* argv[]) {
 		fflush(stdout);
 		fflush(stdin);
 
-
-
 		int bytesIn = 0;
-		memset(&input, 0, sizeof input);
+		memset(&inputBuffer, 0, sizeof inputBuffer);
 
 		while (true) {
 
-			std::cout << "Testing for quit message... ";
-			if(strcmp(input, "quit") == 0){
+			//std::cout << "Testing for quit message... ";
+			if (strcmp(inputBuffer, "quit") == 0) {
 				break;
 			}
-			std::cout << "Not quitting" << endl ;
+			//std::cout << "Not quitting" << endl ;
 
-			std::cout << "Receiving... ";
-			bytesIn = recv(acceptfd, &input, sizeof(input), 0);
-			std::cout << "Received" << endl;
+			//std::cout << "Receiving... ";
+			bytesIn = recv(acceptfd, &inputBuffer, sizeof(inputBuffer), 0);
+			checkRECV(bytesIn, inputBuffer);
+			//std::cout << "Received" << endl;
 
-			if (bytesIn <= -1) {
-				//cout<<"connection closed by client."<<endl<<"exiting..."<<endl;
-				perror("RECV Error");
-				break;
-			} else {
-				//cout << "RX: got \"" << input << "\", echoing back"<<endl;
+			// Start assembling the image file.
 
-				std::cout << "Adding null terminator... ";
-				input[bytesIn] = '\0';
-				std::cout << "Done." << endl;
+			// Set flag to IMAGE
+			message msg;
+			msg.code = IMAGE;
 
-				printf("server received: '%s'\n", input);
+			// Take in the image size
+			msg.size = -1;
+			std::cout << "Reading in size of data... ";
+			msg.size = atoi(inputBuffer);
+			std::cout << "Done." << endl;
+			std::cout << "Size was " << msg.size << endl;
 
-
-				char msg [550];
-				msg[0] = '\0';
-
-				//std::cout << "Appending Echo ";
-				//std::cout << strcat(msg, "echo: ") << endl;
-				std::cout << "Adding input... ";
-				std::cout << strcat(msg, input) << endl;
-
-				std::cout << "Sending response... ";
-				send(acceptfd, msg, strlen(msg), 0);
-				std::cout << "Done." << endl;
+			if(msg.size == -1){
+				exit(0);
 			}
+
+
+			int text = 0;
+			send(acceptfd, &text, sizeof(text), 0);
+
+
+			ofstream file;
+
+			ostringstream ss;
+			mkdir("images/", S_IRWXU | S_IRWXG | S_IRWXO);
+			ss << getpid();
+			char* filename = (char*)(std::string("images/") + (char*)ss.str().c_str()).c_str();
+			file.open(filename, ios::app);
+
+			int size = 0;
+			while (size < msg.size){
+				bytesIn = recv(acceptfd, &inputBuffer, sizeof(inputBuffer), 0);
+
+				for(int i = 0; i < bytesIn; i++){
+					std::cout << "Byte " << size << endl;
+					file << inputBuffer[i];
+					size++;
+					if(size >= msg.size)break;
+				}
+
+				std::cout << "Added " << bytesIn << " bytes." << endl;
+			}
+
+			file.close();
+
+			std::cout << "It closed!" << endl;
+
+			/*std::cout << "Adding null terminator... ";
+			inputBuffer[bytesIn] = '\0';
+			std::cout << "Done." << endl;
+
+			printf("server received: '%s'\n", (char*) msg.data);
+
+			char text[550];
+			text[0] = '\0';
+
+			std::cout << "Appending Echo ";
+			std::cout << strcat(text, "echo: ") << endl;
+
+			std::cout << "Adding input... ";
+			std::cout << strcat(text, inputBuffer) << endl;
+
+			std::cout << "Sending response... ";
+			send(acceptfd, text, strlen(text), 0);
+			std::cout << "Done." << endl;*/
 		}
 		close(sockfd);
 	}
@@ -191,4 +254,17 @@ int main(int argc, char* argv[]) {
 	std::cin.get();
 }
 //}
+
+int checkRECV(int bytesIn, void* data) {
+	if (bytesIn <= -1) {
+		//cout<<"connection closed by client."<<endl<<"exiting..."<<endl;
+		perror("RECV Error");
+		return 0;
+	} else if (bytesIn <= 0) {
+		std::cout << "No bytes received. socket must be broken." << endl;
+		return 0;
+	} else {
+		return 1;
+	}
+}
 
