@@ -23,6 +23,16 @@
 #include "Logger.h"
 
 #define INPUT_BUFFER_SIZE (1024)
+// 1 B
+//#define IMAGE_SIZE_LIMIT (1)
+// 1 KB
+//#define IMAGE_SIZE_LIMIT (1024)
+// 1 MB
+//#define IMAGE_SIZE_LIMIT (1049000)
+// 15 MB
+#define IMAGE_SIZE_LIMIT (15735000)
+// 500 MB
+//#define IMAGE_SIZE_LIMIT (524288000)
 
 using namespace std;
 
@@ -32,15 +42,10 @@ char inputBuffer[INPUT_BUFFER_SIZE]; //Initial input buffer
 struct addrinfo hints;
 struct addrinfo *res;
 
-typedef struct _message {
-	messageCode code;
-	int size;
-	void* data;
-} message;
-
 // Function Declarations
-int checkRECV(int bytesIn, void* data);
+int badRECVCheck(int bytesIn);
 string readQRCode(const char* fpath, struct sockaddr* addr);
+int serviceClient(struct sockaddr_storage addr, int acceptfd);
 
 int main(int argc, char* argv[]) {
 
@@ -92,172 +97,90 @@ int main(int argc, char* argv[]) {
 		std::cout << argv[i] << " ";
 	}
 
-	//std::cout << "\nPort:  ";
-	//printf("%s\n", portString);
-	//std::cout << "Rate:  ";
-	//printf("%s requests in %s seconds\n", rateRequestsString, rateTimeString);
-	//std::cout << "Users: ";
-	//printf("%s\n", usersString);
-	//std::cout << "Time:  ";
-	//printf("%s\n", timeString);
+	memset(&hints, 0, sizeof hints);
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	int sockfd = -1;
+	int status = -1;
+
+	getaddrinfo("127.0.0.1", portString, &hints, &res);
+
+	sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+	log("Socket created.");
+
+	int yes = 1;
+	if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
+		perror("setsockopt");
+		exit(1);
+	}
+	log("Enabled address reuse.");
+
+	struct timeval timeout;
+	timeout.tv_sec = atoi(timeString);
+	timeout.tv_usec = 0;
+
+	if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout))
+			< 0) {
+		perror("setsockopt");
+		exit(1);
+	}
+	log((std::string("Enabled socket timeout ") + timeString).c_str());
+
+	struct addrinfo *test = res;
+	while (test != NULL) {
+		if ((status = bind(sockfd, test->ai_addr, test->ai_addrlen)) == -1) {
+			perror("Bind failed");
+			fflush(stdout);
+			test = test->ai_next;
+			continue;
+		}
+
+		break;
+	}
+	log((std::string("Socket bound to port ") + portString + ".").c_str());
+
+	status = listen(sockfd, 5);
+
+	int numClients = 0;
 
 	bool runServer = true;
-	if (runServer) {
+	while (runServer) {
 
-		memset(&hints, 0, sizeof hints);
-		hints.ai_family = AF_UNSPEC;
-		hints.ai_socktype = SOCK_STREAM;
-		int sockfd = -1;
-		int status = -1;
-
-		getaddrinfo("127.0.0.1", portString, &hints, &res);
-
-		sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-		log("Socket created.");
-
-		int yes = 1;
-		if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int))
-				== -1) {
-			perror("setsockopt");
-			exit(1);
-		}
-		log("Enabled address reuse.");
-
-		struct addrinfo *test = res;
-		while (test != NULL) {
-			if ((status = bind(sockfd, test->ai_addr, test->ai_addrlen))
-					== -1) {
-				perror("Bind failed");
-				fflush(stdout);
-				test = test->ai_next;
-				continue;
-			}
-
-			//printf("BIND returned: %d\n", status);
-			//fflush(stdout);
-			//if(status != -1) break;
-			break;
-			//i=i->ai_next;
-		}
-		log((std::string("Socket bound to port ") + portString + ".").c_str());
-
-		status = listen(sockfd, 5);
 		log((std::string("Listening on port ") + portString + ".").c_str());
-		//printf("LISTEN returned: %i\n", status);
-		//fflush(stdout);
 
 		struct sockaddr_storage addr;
 		socklen_t sin_size;
 
 		int acceptfd = -1;
 		while (true) {
+			memset(&addr, 0, sizeof(addr));
+			memset(&sin_size, 0, sizeof(sin_size));
 			sin_size = sizeof addr;
 			acceptfd = accept(sockfd, (struct sockaddr *) &addr, &sin_size);
 			if (acceptfd <= 0) {
-				//printf("%d\n", acceptfd);
-				//perror("Connection Attempted. Failed with error");
-				//fflush(stdout);
+				numClients++;
 				continue;
 			}
 			break;
 		}
 
-		log((struct sockaddr *) &addr, "Accepted client connection.");
+		ostringstream ss;
+		ss << numClients;
+		log((struct sockaddr *) &addr,
+				(std::string("Accepted client connection #") + ss.str().c_str()
+						+ ".").c_str());
 
-		int bytesIn = 0;
-		memset(&inputBuffer, 0, sizeof inputBuffer);
+		pid_t forkResult = fork();
 
-		while (true) {
-			if (strcmp(inputBuffer, "quit") == 0) {
-				break;
-			}
-
-			log((struct sockaddr *) &addr, "Waiting for data.");
-
-			int messageSize = 0;
-			bytesIn = recv(acceptfd, &messageSize, sizeof(int), 0);
-
-			// Start assembling the image file.
-			// Set flag to IMAGE
-			message msg;
-			msg.code = IMAGE;
-
-			// Take in the image size
-			msg.size = -1;
-			//std::cout << "Reading in size of data... ";
-			msg.size = messageSize;
-			//std::cout << "Done." << endl;
-			//std::cout << "Size was " << msg.size << endl;
-
-			if (msg.size == -1) {
-				exit(0);
-			}
-
-			int text = 0;
-			send(acceptfd, &text, sizeof(text), 0);
-
-			ofstream file;
-
-			ostringstream ss;
-			if (mkdir(imgDir, S_IRWXU | S_IRWXG | S_IRWXO) == 0) {
-				log((struct sockaddr *) &addr,
-						(std::string("Creating directory ") + imgDir).c_str());
-			}
-			ss << getpid();
-			std::string filename = (std::string(imgDir)
-					+ (char*) ss.str().c_str() + std::string(".png"));
-			file.open(filename.c_str(), ios::app);
-			log((struct sockaddr *) &addr,
-					(std::string("Writing image file ") + filename).c_str());
-
-			int size = 0;
-			while (size < msg.size) {
-				bytesIn = recv(acceptfd, &inputBuffer, INPUT_BUFFER_SIZE, 0);
-
-				for (int i = 0; i < bytesIn; i++) {
-
-					file << inputBuffer[i];
-					size++;
-					if (size >= msg.size)
-						break;
-				}
-
-				//std::cout << "Added " << bytesIn << " bytes." << endl;
-			}
-			stringstream strstr;
-			strstr << "Image file " << size << " Bytes";
-			log((struct sockaddr *) &addr, strstr.str().c_str());
-
-			log((struct sockaddr *) &addr,
-					(std::string("Closed image file ") + filename).c_str());
-			file.close();
-
-			// Parse the QR Code and transmit
-			int code = 0;
-			int resultlen = 0;
-
-			log((struct sockaddr *) &addr,
-					(std::string("Reading QR Code stored at ") + filename).c_str());
-			string result = readQRCode(filename.c_str(), (struct sockaddr*) &addr);
-
-			std::string resultString(result);
-
-			if (resultString.compare("") == 0) {
-				continue;
-			}
-			resultlen = resultString.length();
-
-			// Transmit!
-			send(acceptfd, &code, 4, 0);
-
-			send(acceptfd, &resultlen, 4, 0);
-
-			send(acceptfd, result.c_str(), strlen(result.c_str()), 0);
-
+		if (forkResult != 0) {
+			serviceClient(addr, acceptfd);
+		} else {
+			// Add PID to running queue od MAX USERS size
+			numClients++;
 		}
-		close(sockfd);
-	}
 
+	}
+	close(sockfd);
 	//... some more code
 	std::cin.get();
 }
@@ -307,7 +230,9 @@ string readQRCode(const char* fpath, struct sockaddr* addr) {
 		return string("");
 	}
 
-	log(addr, (std::string("String returned from ZXing \"") + interpretedCode + "\"").c_str());
+	log(addr,
+			(std::string("String returned from ZXing \"") + interpretedCode
+					+ "\"").c_str());
 
 	//cleanup
 	delete[] line;
@@ -318,16 +243,126 @@ string readQRCode(const char* fpath, struct sockaddr* addr) {
 	return interpretedCode;
 }
 
-int checkRECV(int bytesIn, void* data) {
-	if (bytesIn <= -1) {
-		//cout<<"connection closed by client."<<endl<<"exiting..."<<endl;
-		perror("RECV Error");
-		return 0;
-	} else if (bytesIn <= 0) {
-		std::cout << "No bytes received. socket must be broken." << endl;
-		return 0;
-	} else {
+int badRECVCheck(int bytesIn) {
+	if (bytesIn <= 0) {
+		//std::cout << "No bytes received. Socket must be closed." << endl;
 		return 1;
+	} else {
+		return 0;
 	}
 }
 
+int serviceClient(sockaddr_storage addr, int acceptfd) {
+	bool runSession = true;
+	while (runSession) {
+		int bytesIn = 0;
+		memset(&inputBuffer, 0, sizeof inputBuffer);
+
+		if (strcmp(inputBuffer, "quit") == 0) {
+			break;
+		}
+
+		log((struct sockaddr *) &addr, "Waiting for data.");
+
+		int messageSize = 0;
+		int hasTimedOut = 0;
+		bytesIn = recv(acceptfd, &messageSize, sizeof(int), 0);
+		if (badRECVCheck(bytesIn)) {
+			log((struct sockaddr *) &addr, "Timed Out.");
+			hasTimedOut = 1;
+		}
+
+		// Start assembling the image file.
+		// Set flag to IMAGE
+
+		// Take in the image size
+		int imageSize = messageSize;
+		int imageTooBig = 0;
+
+		if (imageSize == -1) {
+			exit(0);
+		} else if (imageSize > IMAGE_SIZE_LIMIT) {
+			log((struct sockaddr *) &addr,
+					(std::string("Client offered image too large.")).c_str());
+			imageTooBig = 1;
+		}
+
+		if (hasTimedOut)
+			imageTooBig = 2;
+		send(acceptfd, &imageTooBig, sizeof(imageTooBig), 0);
+
+		if (hasTimedOut) {
+			break;
+		}
+		if (imageTooBig) {
+			continue;
+		}
+
+
+		ofstream file;
+
+		ostringstream ss;
+		if (mkdir(imgDir, S_IRWXU | S_IRWXG | S_IRWXO) == 0) {
+			log((struct sockaddr *) &addr,
+					(std::string("Creating directory ") + imgDir).c_str());
+		}
+		ss << getpid();
+		std::string filename = (std::string(imgDir) + (char*) ss.str().c_str()
+				+ std::string(".png"));
+		file.open(filename.c_str(), ios::app);
+		log((struct sockaddr *) &addr,
+				(std::string("Writing image file ") + filename).c_str());
+
+		int size = 0;
+		while (size < imageSize) {
+			bytesIn = recv(acceptfd, &inputBuffer, INPUT_BUFFER_SIZE, 0);
+			if (badRECVCheck(bytesIn)) {
+				log((struct sockaddr *) &addr, "Timed Out 2.");
+				break;
+			}
+
+			for (int i = 0; i < bytesIn; i++) {
+
+				file << inputBuffer[i];
+				size++;
+				if (size >= imageSize)
+					break;
+			}
+
+			//std::cout << "Added " << bytesIn << " bytes." << endl;
+		}
+		stringstream strstr;
+		strstr << "Image file " << size << " Bytes";
+		log((struct sockaddr *) &addr, strstr.str().c_str());
+
+		log((struct sockaddr *) &addr,
+				(std::string("Closed image file ") + filename).c_str());
+		file.close();
+
+		// Parse the QR Code and transmit
+		int code = 0;
+		int resultlen = 0;
+
+		log((struct sockaddr *) &addr,
+				(std::string("Reading QR Code stored at ") + filename).c_str());
+		string result = readQRCode(filename.c_str(), (struct sockaddr*) &addr);
+
+		std::string resultString(result);
+
+		if (resultString.compare("") == 0) {
+			code = 1;
+			result = "NULL";
+		}
+		log((struct sockaddr *) &addr,
+				(std::string("QR Code result was \"") + result + "\"").c_str());
+		resultlen = resultString.length();
+
+		// Transmit!
+		send(acceptfd, &code, 4, 0);
+
+		send(acceptfd, &resultlen, 4, 0);
+
+		send(acceptfd, result.c_str(), strlen(result.c_str()), 0);
+	}
+	return 0;
+}

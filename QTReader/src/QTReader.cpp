@@ -31,10 +31,8 @@ int main(int argc, char* argv[]) {
 
 	getaddrinfo("127.0.0.1", "2012", &hints, &res);
 
-	//return 0;
-
 	sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-
+	printf("Socket FD: %i\n", sockfd);
 	// connect!
 
 	int result = connect(sockfd, res->ai_addr, res->ai_addrlen);
@@ -118,7 +116,7 @@ int main(int argc, char* argv[]) {
 		recv(sockfd, &response, sizeof(int), 0);
 		cout << "got response: size " << (response == 0 ? "OK" : "NOT OK")
 				<< endl;
-		if (response > 0)
+		if (response != 0)
 			continue;
 
 		//send image
@@ -152,30 +150,33 @@ int main(int argc, char* argv[]) {
 										(response == 3 ?
 												"RATE EXCEEDED" : "MISC ERROR"))))
 				<< endl;
-		if (response > 0)
-			continue;
-
-		recv(sockfd, &datasize, sizeof(int), 0);
-
-		readSize = 0;
-		char tempdata [datasize + 128];
-		memset(tempdata, 0, sizeof tempdata);
-
-		do {
-			readSize += recv(sockfd, &tempdata, sizeof tempdata, 0);
-
-			//tempdata = "";
-		} while (readSize < datasize);
-
-		data = tempdata;
-
-		cout << "QR data: " << endl << data << "" << endl;
-
-		//account for the possibility of data getting smeared across packets
-
-		if (readSize == 0) {
-			cout << "connection closed by server." << endl;
+		if (response == 2) {
 			break;
+		} else if (response > 0){
+			continue;
+		} else {
+			recv(sockfd, &datasize, sizeof(int), 0);
+
+			readSize = 0;
+			char tempdata[datasize + 128];
+			memset(tempdata, 0, sizeof tempdata);
+
+			do {
+				readSize += recv(sockfd, &tempdata, sizeof tempdata, 0);
+
+				//tempdata = "";
+			} while (readSize < datasize);
+
+			data = tempdata;
+
+			cout << "QR data: " << endl << data << "" << endl;
+
+			//account for the possibility of data getting smeared across packets
+
+			if (readSize == 0) {
+				cout << "connection closed by server." << endl;
+				break;
+			}
 		}
 		//1: string
 		//2: image
