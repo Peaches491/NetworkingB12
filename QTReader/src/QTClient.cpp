@@ -68,12 +68,12 @@ int main(int argc, char* argv[]) {
 		char buf [512];
 		fgets(buf, sizeof(buf), stream);
 
-		cout << buf << endl;
+		//cout << buf << endl;
 
 		string path(buf);
 
 		path = path.substr(0, path.size()-1);
-		cout << path << endl;
+		//cout << path << endl;
 
 		//std::cout << "Checking for \"quit\"... ";
 		if (path.compare("quit\n") == 0) {
@@ -88,7 +88,7 @@ int main(int argc, char* argv[]) {
 		if (!image.is_open()) {
 			cout << "error opening image " << path << endl;
 
-			break;
+			continue;
 		}
 
 		image.seekg(0, ios::beg);
@@ -125,7 +125,7 @@ int main(int argc, char* argv[]) {
 
 		unsigned int dataSent = 0;
 		while (dataSent < imagesize) {
-			std::cout << "Byte " << dataSent << endl;
+			//std::cout << "Byte " << dataSent << endl;
 			send(sockfd, &(contents[dataSent]), sizeof(contents[0]), 0);
 			dataSent++;
 			if (dataSent >= imagesize) break;

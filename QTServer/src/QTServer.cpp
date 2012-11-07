@@ -7,6 +7,7 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <netdb.h>
 #include <iostream>
 #include <stdio.h>
@@ -14,19 +15,20 @@
 #include <cstring>
 #include <cerrno>
 #include <algorithm>
-#include <iostream>
 #include <fstream>
-#include <sys/types.h>
 #include <unistd.h>
 #include <sstream>
-#include <sys/stat.h>
 #include "QTServer.h"
 #include "QTSession.h"
+#include "Logger.h"
+
+#define INPUT_BUFFER_SIZE (1024)
 
 using namespace std;
 
 // Global Variables
-char inputBuffer[512]; //Initial input buffer
+static const char* imgDir = "images/";
+char inputBuffer[INPUT_BUFFER_SIZE]; //Initial input buffer
 struct addrinfo hints;
 struct addrinfo *res;
 
@@ -61,7 +63,7 @@ int main(int argc, char* argv[]) {
 	char* usersString = "3";
 	char* timeString = "80";
 
-	std::cout << argv[0];
+	std: cout << "" << endl;
 
 	for (int i = 1; i < argc; i++) {
 		if ((i + 1) != argc) {
@@ -89,16 +91,14 @@ int main(int argc, char* argv[]) {
 		std::cout << argv[i] << " ";
 	}
 
-	std::cout << "\nPort:  ";
-	printf("%s\n", portString);
-	std::cout << "Rate:  ";
-	printf("%s requests in %s seconds\n", rateRequestsString, rateTimeString);
-	std::cout << "Users: ";
-	printf("%s\n", usersString);
-	std::cout << "Time:  ";
-	printf("%s\n", timeString);
-
-	QTSession test(124);
+	//std::cout << "\nPort:  ";
+	//printf("%s\n", portString);
+	//std::cout << "Rate:  ";
+	//printf("%s requests in %s seconds\n", rateRequestsString, rateTimeString);
+	//std::cout << "Users: ";
+	//printf("%s\n", usersString);
+	//std::cout << "Time:  ";
+	//printf("%s\n", timeString);
 
 	bool runServer = true;
 	if (runServer) {
@@ -109,11 +109,10 @@ int main(int argc, char* argv[]) {
 		int sockfd = -1;
 		int status = -1;
 
-		getaddrinfo("127.0.0.1", "2012", &hints, &res);
+		getaddrinfo("127.0.0.1", portString, &hints, &res);
 
 		sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-		printf("SOCKET returned: %i\n", sockfd);
-		fflush(stdout);
+		log("Socket created.");
 
 		int yes = 1;
 		if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int))
@@ -121,6 +120,7 @@ int main(int argc, char* argv[]) {
 			perror("setsockopt");
 			exit(1);
 		}
+		log("Enabled address reuse.");
 
 		struct addrinfo *test = res;
 		while (test != NULL) {
@@ -132,16 +132,18 @@ int main(int argc, char* argv[]) {
 				continue;
 			}
 
-			printf("BIND returned: %d\n", status);
-			fflush(stdout);
+			//printf("BIND returned: %d\n", status);
+			//fflush(stdout);
 			//if(status != -1) break;
 			break;
 			//i=i->ai_next;
 		}
+		log((std::string("Socket bound to port ") + portString + ".").c_str());
 
 		status = listen(sockfd, 5);
-		printf("LISTEN returned: %i\n", status);
-		fflush(stdout);
+		log((std::string("Listening on port ") + portString + ".").c_str());
+		//printf("LISTEN returned: %i\n", status);
+		//fflush(stdout);
 
 		struct sockaddr_storage addr;
 		socklen_t sin_size;
@@ -151,47 +153,41 @@ int main(int argc, char* argv[]) {
 			sin_size = sizeof addr;
 			acceptfd = accept(sockfd, (struct sockaddr *) &addr, &sin_size);
 			if (acceptfd <= 0) {
-				printf("%d\n", acceptfd);
-				perror("Connection Attempted. Failed with error");
-				fflush(stdout);
+				//printf("%d\n", acceptfd);
+				//perror("Connection Attempted. Failed with error");
+				//fflush(stdout);
 				continue;
 			}
 			break;
 		}
 
-		printf("ACCEPTED!\n");
-		fflush(stdout);
-		fflush(stdin);
+		log((struct sockaddr *) &addr, "Accepted client connection.");
 
 		int bytesIn = 0;
 		memset(&inputBuffer, 0, sizeof inputBuffer);
 
 		while (true) {
-
-			//std::cout << "Testing for quit message... ";
 			if (strcmp(inputBuffer, "quit") == 0) {
 				break;
 			}
-			//std::cout << "Not quitting" << endl ;
+
+			log((struct sockaddr *) &addr, "Waiting for data.");
 
 			int messageSize = 0;
-			//std::cout << "Receiving... ";
 			bytesIn = recv(acceptfd, &messageSize, sizeof(int), 0);
-			//checkRECV(bytesIn, inputBuffer);
-			//std::cout << "Received" << endl;
+
 
 			// Start assembling the image file.
-
 			// Set flag to IMAGE
 			message msg;
 			msg.code = IMAGE;
 
 			// Take in the image size
 			msg.size = -1;
-			std::cout << "Reading in size of data... ";
+			//std::cout << "Reading in size of data... ";
 			msg.size = messageSize;
-			std::cout << "Done." << endl;
-			std::cout << "Size was " << msg.size << endl;
+			//std::cout << "Done." << endl;
+			//std::cout << "Size was " << msg.size << endl;
 
 			if (msg.size == -1) {
 				exit(0);
@@ -203,49 +199,33 @@ int main(int argc, char* argv[]) {
 			ofstream file;
 
 			ostringstream ss;
-			mkdir("images/", S_IRWXU | S_IRWXG | S_IRWXO);
+			if(mkdir(imgDir, S_IRWXU | S_IRWXG | S_IRWXO) == 0){
+				log((struct sockaddr *) &addr, (std::string("Creating directory ") + imgDir).c_str());
+			}
 			ss << getpid();
-			char* filename = (char*) (std::string("images/")
-					+ (char*) ss.str().c_str() + std::string(".png")).c_str();
-			file.open(filename, ios::app);
+			std::string filename = (std::string(imgDir) + (char*) ss.str().c_str() + std::string(".png"));
+			file.open(filename.c_str(), ios::app);
+			log((struct sockaddr *) &addr, (std::string("Writing image file ") + filename).c_str());
 
 			int size = 0;
 			while (size < msg.size) {
-				bytesIn = recv(acceptfd, &inputBuffer, sizeof(inputBuffer), 0);
+				bytesIn = recv(acceptfd, &inputBuffer, INPUT_BUFFER_SIZE, 0);
 
 				for (int i = 0; i < bytesIn; i++) {
-					std::cout << "Byte " << size << endl;
-					file << inputBuffer[i];
 					size++;
 					if (size >= msg.size)
 						break;
 				}
 
-				std::cout << "Added " << bytesIn << " bytes." << endl;
+				//std::cout << "Added " << bytesIn << " bytes." << endl;
 			}
+			stringstream strstr;
+			strstr << "Image file " << size << " Bytes";
+			log((struct sockaddr *) &addr, strstr.str().c_str());
 
+			log((struct sockaddr *) &addr,
+					(std::string("Closed image file ") + filename).c_str());
 			file.close();
-
-			std::cout << "It closed!" << endl;
-
-			/*std::cout << "Adding null terminator... ";
-			 inputBuffer[bytesIn] = '\0';
-			 std::cout << "Done." << endl;
-
-			 printf("server received: '%s'\n", (char*) msg.data);
-
-			 char text[550];
-			 text[0] = '\0';
-
-			 std::cout << "Appending Echo ";
-			 std::cout << strcat(text, "echo: ") << endl;
-
-			 std::cout << "Adding input... ";
-			 std::cout << strcat(text, inputBuffer) << endl;
-
-			 std::cout << "Sending response... ";
-			 send(acceptfd, text, strlen(text), 0);
-			 std::cout << "Done." << endl;*/
 		}
 		close(sockfd);
 	}
@@ -256,14 +236,14 @@ int main(int argc, char* argv[]) {
 //}
 
 string interpretCode() {
-	FILE *stream = popen((std::string("echo ")).c_str(), "r");
+	FILE *stream = popen((string("echo ")).c_str(), "r");
 
 	char buf[512];
 	fgets(buf, sizeof(buf), stream);
 
 	cout << buf << endl;
 
-	string path(buf);
+	return string(buf);
 }
 
 int checkRECV(int bytesIn, void* data) {
