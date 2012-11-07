@@ -94,7 +94,6 @@ int main(int argc, char* argv[]) {
 
 			}
 		}
-		std::cout << argv[i] << " ";
 	}
 
 	memset(&hints, 0, sizeof hints);
@@ -129,8 +128,8 @@ int main(int argc, char* argv[]) {
 	struct addrinfo *test = res;
 	while (test != NULL) {
 		if ((status = bind(sockfd, test->ai_addr, test->ai_addrlen)) == -1) {
-			perror("Bind failed");
-			fflush(stdout);
+			//perror("Bind failed");
+			//fflush(stdout);
 			test = test->ai_next;
 			continue;
 		}
@@ -172,8 +171,8 @@ int main(int argc, char* argv[]) {
 
 		pid_t forkResult = fork();
 
-		if (forkResult != 0) {
-			serviceClient(addr, acceptfd);
+		if (forkResult == 0) {
+			return serviceClient(addr, acceptfd);
 		} else {
 			// Add PID to running queue od MAX USERS size
 			numClients++;
