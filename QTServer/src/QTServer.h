@@ -12,5 +12,8 @@
 enum messageCode {TEXT, IMAGE, STATUS};
 enum statusCode {TIME_OUT, MAX_USERS, TOO_BIG};
 
+#define PARSED_DATA_MARKER string("Parsed result:\n")
+#define ZXING_PATH         "java -cp javase.jar:core.jar com.google.zxing.client.j2se.CommandLineRunner "
+
 
 #endif /* QTSERVER_H_ */

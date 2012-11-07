@@ -40,6 +40,12 @@ int main(int argc, char* argv[]) {
 	int result = connect(sockfd, res->ai_addr, res->ai_addrlen);
 
 	printf("Connection Result: %i\n", result);
+
+	if (result < 0) {
+		cout << "no connection was established. exiting." << endl;
+		return 1;
+	}
+
 	fflush(stdin);
 
 	//int bufSize = 512;
@@ -52,7 +58,7 @@ int main(int argc, char* argv[]) {
 	ifstream image;
 	unsigned int imagesize;
 	string data;
-	string tempdata;
+	//string tempdata;
 	unsigned int datasize = 0;
 	unsigned int response = 0;
 	//snprintf(kbinput, 3,"%d", 10);
@@ -62,18 +68,18 @@ int main(int argc, char* argv[]) {
 		cout << "enter the path of an image: ";
 		cin >> kbinput;
 
+		FILE *stream = popen((std::string("echo ") + kbinput.c_str()).c_str(),
+				"r");
 
-		FILE *stream = popen((std::string("echo ") + kbinput.c_str()).c_str(), "r");
-
-		char buf [512];
+		char buf[512];
 		fgets(buf, sizeof(buf), stream);
 
-		cout << buf << endl;
+		//cout << buf << endl;
 
 		string path(buf);
 
-		path = path.substr(0, path.size()-1);
-		cout << path << endl;
+		path = path.substr(0, path.size() - 1);
+		//cout << path << endl;
 
 		//std::cout << "Checking for \"quit\"... ";
 		if (path.compare("quit\n") == 0) {
@@ -86,16 +92,16 @@ int main(int argc, char* argv[]) {
 		image.open(path.c_str(), ios::in | ios::binary);
 
 		if (!image.is_open()) {
-			cout << "error opening image " << path << endl;
-
-			break;
+			cout << "error opening image at " << path << endl;
+			continue;
+			//break;
 		}
 
 		image.seekg(0, ios::beg);
 		int beginning = (int) image.tellg();
 		//determine the image's size
 		image.seekg(0, ios::end);
-		int end = (int) image.tellg();		//-imagesize;
+		int end = (int) image.tellg(); //-imagesize;
 
 		imagesize = end - beginning;
 
@@ -112,11 +118,11 @@ int main(int argc, char* argv[]) {
 		//image.
 		//send the image size and data
 		send(sockfd, &imagesize, 4, 0);
-		cout << "sent image size." << endl;		//: "<<imagesize<<"B"<<endl;
+		cout << "sent image size." << endl; //: "<<imagesize<<"B"<<endl;
 
 		//wait for an OK from the server
 		recv(sockfd, &response, 1, 0);
-		cout << "got response: size" << (response == 0 ? "OK" : "NOT OK")
+		cout << "got response: size " << (response == 0 ? "OK" : "NOT OK")
 				<< endl;
 		if (response > 0)
 			continue;
@@ -125,15 +131,15 @@ int main(int argc, char* argv[]) {
 
 		unsigned int dataSent = 0;
 		while (dataSent < imagesize) {
-			std::cout << "Byte " << dataSent << endl;
+			//std::cout << "Byte " << dataSent << endl;
 			send(sockfd, &(contents[dataSent]), sizeof(contents[0]), 0);
 			dataSent++;
-			if (dataSent >= imagesize) break;
+			if (dataSent >= imagesize)
+				break;
 			//std::cout << "Sent " << bytesIn << " bytes." << endl;
 		}
 
-
-		cout << "sent image data: " << contents << endl;
+		cout << "sent image to server. waiting for result..." << endl;
 
 		//free dat RAM
 		delete[] contents;
@@ -153,41 +159,33 @@ int main(int argc, char* argv[]) {
 		if (response > 0)
 			continue;
 
-		//
-		recv(sockfd, &datasize, 4, 0);
-		cout << "expecting data of length " << datasize << endl;
+		cout << "got " << recv(sockfd, &datasize, 4, 0)
+						<< " bytes from the server" << endl;
+		cout << "got " << recv(sockfd, &datasize, 4, 0)
+				<< " bytes from the server" << endl;
+		cout << "will be expecting data of length " << datasize << endl;
 
-		data = "";
+		datasize = 36;
+
+		//data = "";
 		readSize = 0;
+		char tempdata [datasize + 100];
+
 		do {
-			readSize += recv(sockfd, &tempdata, datasize, 0);
-			data += tempdata;
-			tempdata = "";
+			readSize += recv(sockfd, &tempdata, sizeof tempdata, 0);
+			cout << "read a total of " << readSize << " B from server" << endl;
+			data += string(tempdata);
+			//tempdata = "";
 		} while (readSize < datasize);
 
+		cout << "QR data: \"" << data << "\"" << endl;
+
 		//account for the possibility of data getting smeared across packets
-
-		//}
-
-//		std::cout << "Sending... ";
-//		send(sockfd, &kbinput, sizeof(kbinput), 0);
-//		std::cout << "Sent." << endl;
-//
-//		std::cout << "Receiving... ";
-//		readSize = recv(sockfd, &echoinput, sizeof(echoinput), 0);
-//		std::cout << "Received." << endl;
 
 		if (readSize == 0) {
 			cout << "connection closed by server." << endl;
 			break;
-		} else {
-			//cout << "Bytes Received: ";
-			//cout << readSize;
-			//cout << " Data: "<<endl;
-			//cout << echoinput << endl;
-			//sprintf(kbinput,"%l", random());
 		}
-
 		//1: string
 		//2: image
 		//	4 bytes for size
