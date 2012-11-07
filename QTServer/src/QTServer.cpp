@@ -40,6 +40,7 @@ typedef struct _message {
 
 // Function Declarations
 int checkRECV(int bytesIn, void* data);
+string readQRCode(const char* fpath);
 
 int main(int argc, char* argv[]) {
 
@@ -212,6 +213,8 @@ int main(int argc, char* argv[]) {
 				bytesIn = recv(acceptfd, &inputBuffer, INPUT_BUFFER_SIZE, 0);
 
 				for (int i = 0; i < bytesIn; i++) {
+
+					file << inputBuffer[i];
 					size++;
 					if (size >= msg.size)
 						break;
@@ -226,6 +229,29 @@ int main(int argc, char* argv[]) {
 			log((struct sockaddr *) &addr,
 					(std::string("Closed image file ") + filename).c_str());
 			file.close();
+
+			std::cout << "Closed the file!" << endl;
+
+			string result;
+			int code = 0;
+			int resultlen = 0;
+
+			cout<<"Reading QR code stored at "<<filename<<" "<<endl;
+			result = readQRCode(filename.c_str());
+
+			if(result.compare("")==0){
+				cout<<"going back to wait for another image."<<endl;
+				continue;
+			}
+
+			resultlen = result.length();
+
+			send(acceptfd, &code, 4, 0);
+
+			send(acceptfd, &resultlen, 4, 0);
+
+			send(acceptfd, &result, resultlen, 0);
+
 		}
 		close(sockfd);
 	}
@@ -233,7 +259,6 @@ int main(int argc, char* argv[]) {
 	//... some more code
 	std::cin.get();
 }
-//}
 
 string interpretCode() {
 	FILE *stream = popen((string("echo ")).c_str(), "r");
@@ -245,6 +270,69 @@ string interpretCode() {
 
 	return string(buf);
 }
+
+string readQRCode(const char* fpath){
+	FILE *fpipe;
+	int linelength = 300;
+	char* line = new char[linelength];
+
+	string command = string(ZXING_PATH)+fpath;
+	string output;
+	string interpretedCode;
+
+	int8_t storeNextLine = 0;
+
+	//this'll call the ZXing command
+	// but it'll also allow us to crawl the output
+	// for the delicious interpreted QR code
+	if(!(fpipe=(FILE*)popen(command.c_str(), "r"))){
+		perror("Problem executing QR code interpreter");
+		return "";
+	}
+
+	//read in ALL the lines!
+	while(fgets(line, linelength, fpipe)){
+		if(storeNextLine==1){
+			interpretedCode = string(line);
+			interpretedCode.resize(interpretedCode.length()-1);
+			storeNextLine = -1;// disable any further writes to the string
+		}
+		//store all the output for logging.
+		//TODO: Probably wanna add this to the log. Maybe just swap this line for that?
+		output += string(line);
+
+		//will flip to one when not storing a line and the current line marks the data
+		if(storeNextLine>=0)
+			storeNextLine = ( string(line).find(PARSED_DATA_MARKER)==0 );
+
+		//line = "";
+	}
+
+	//close the stream/"file"/command
+	pclose(fpipe);
+
+
+
+	//no interpreted code was found.
+	if(output=="")
+		std::cerr<<"Got no data back from ZXing."<<endl;
+
+	cout<<"got the following from ZXing:"<<endl;
+	cout<<"-------------------------"<<endl;
+	cout<<output;
+	cout<<"-------------------------"<<endl;
+
+	cout<<"parsed out: \""<<interpretedCode<<"\" (length "<<interpretedCode.length()<<")"<<endl;
+
+	//cleanup
+	delete[] line;
+	//if(&fpipe) delete fpipe;
+	//delete &output;
+	//delete &command;
+
+	return interpretedCode;
+}
+
 
 int checkRECV(int bytesIn, void* data) {
 	if (bytesIn <= -1) {
