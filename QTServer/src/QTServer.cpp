@@ -40,7 +40,7 @@ typedef struct _message {
 
 // Function Declarations
 int checkRECV(int bytesIn, void* data);
-string readQRCode(const char* fpath);
+string readQRCode(const char* fpath, struct sockaddr* addr);
 
 int main(int argc, char* argv[]) {
 
@@ -177,7 +177,6 @@ int main(int argc, char* argv[]) {
 			int messageSize = 0;
 			bytesIn = recv(acceptfd, &messageSize, sizeof(int), 0);
 
-
 			// Start assembling the image file.
 			// Set flag to IMAGE
 			message msg;
@@ -200,13 +199,16 @@ int main(int argc, char* argv[]) {
 			ofstream file;
 
 			ostringstream ss;
-			if(mkdir(imgDir, S_IRWXU | S_IRWXG | S_IRWXO) == 0){
-				log((struct sockaddr *) &addr, (std::string("Creating directory ") + imgDir).c_str());
+			if (mkdir(imgDir, S_IRWXU | S_IRWXG | S_IRWXO) == 0) {
+				log((struct sockaddr *) &addr,
+						(std::string("Creating directory ") + imgDir).c_str());
 			}
 			ss << getpid();
-			std::string filename = (std::string(imgDir) + (char*) ss.str().c_str() + std::string(".png"));
+			std::string filename = (std::string(imgDir)
+					+ (char*) ss.str().c_str() + std::string(".png"));
 			file.open(filename.c_str(), ios::app);
-			log((struct sockaddr *) &addr, (std::string("Writing image file ") + filename).c_str());
+			log((struct sockaddr *) &addr,
+					(std::string("Writing image file ") + filename).c_str());
 
 			int size = 0;
 			while (size < msg.size) {
@@ -230,27 +232,27 @@ int main(int argc, char* argv[]) {
 					(std::string("Closed image file ") + filename).c_str());
 			file.close();
 
-			std::cout << "Closed the file!" << endl;
-
-			string result;
+			// Parse the QR Code and transmit
 			int code = 0;
 			int resultlen = 0;
 
-			cout<<"Reading QR code stored at "<<filename<<" "<<endl;
-			result = readQRCode(filename.c_str());
+			log((struct sockaddr *) &addr,
+					(std::string("Reading QR Code stored at ") + filename).c_str());
+			string result = readQRCode(filename.c_str(), (struct sockaddr*) &addr);
 
-			if(result.compare("")==0){
-				cout<<"going back to wait for another image."<<endl;
+			std::string resultString(result);
+
+			if (resultString.compare("") == 0) {
 				continue;
 			}
+			resultlen = resultString.length();
 
-			resultlen = result.length();
-
+			// Transmit!
 			send(acceptfd, &code, 4, 0);
 
 			send(acceptfd, &resultlen, 4, 0);
 
-			send(acceptfd, &result, resultlen, 0);
+			send(acceptfd, result.c_str(), strlen(result.c_str()), 0);
 
 		}
 		close(sockfd);
@@ -260,50 +262,38 @@ int main(int argc, char* argv[]) {
 	std::cin.get();
 }
 
-string interpretCode() {
-	FILE *stream = popen((string("echo ")).c_str(), "r");
-
-	char buf[512];
-	fgets(buf, sizeof(buf), stream);
-
-	cout << buf << endl;
-
-	return string(buf);
-}
-
-string readQRCode(const char* fpath){
+string readQRCode(const char* fpath, struct sockaddr* addr) {
 	FILE *fpipe;
 	int linelength = 300;
 	char* line = new char[linelength];
 
-	string command = string(ZXING_PATH)+fpath;
+	string command = string(ZXING_PATH) + fpath;
 	string output;
 	string interpretedCode;
 
 	int8_t storeNextLine = 0;
 
-	//this'll call the ZXing command
+	// this'll call the ZXing command
 	// but it'll also allow us to crawl the output
 	// for the delicious interpreted QR code
-	if(!(fpipe=(FILE*)popen(command.c_str(), "r"))){
+	if (!(fpipe = (FILE*) popen(command.c_str(), "r"))) {
 		perror("Problem executing QR code interpreter");
 		return "";
 	}
 
 	//read in ALL the lines!
-	while(fgets(line, linelength, fpipe)){
-		if(storeNextLine==1){
+	while (fgets(line, linelength, fpipe)) {
+		if (storeNextLine == 1) {
 			interpretedCode = string(line);
-			interpretedCode.resize(interpretedCode.length()-1);
-			storeNextLine = -1;// disable any further writes to the string
+			interpretedCode.resize(interpretedCode.length() - 1);
+			storeNextLine = -1;	// disable any further writes to the string
 		}
-		//store all the output for logging.
 		//TODO: Probably wanna add this to the log. Maybe just swap this line for that?
 		output += string(line);
 
 		//will flip to one when not storing a line and the current line marks the data
-		if(storeNextLine>=0)
-			storeNextLine = ( string(line).find(PARSED_DATA_MARKER)==0 );
+		if (storeNextLine >= 0)
+			storeNextLine = (string(line).find(PARSED_DATA_MARKER) == 0);
 
 		//line = "";
 	}
@@ -311,18 +301,13 @@ string readQRCode(const char* fpath){
 	//close the stream/"file"/command
 	pclose(fpipe);
 
-
-
 	//no interpreted code was found.
-	if(output=="")
-		std::cerr<<"Got no data back from ZXing."<<endl;
+	if (output == "") {
+		log(addr, (std::string("Got no data from ZXing.")).c_str());
+		return string("");
+	}
 
-	cout<<"got the following from ZXing:"<<endl;
-	cout<<"-------------------------"<<endl;
-	cout<<output;
-	cout<<"-------------------------"<<endl;
-
-	cout<<"parsed out: \""<<interpretedCode<<"\" (length "<<interpretedCode.length()<<")"<<endl;
+	log(addr, (std::string("String returned from ZXing \"") + interpretedCode + "\"").c_str());
 
 	//cleanup
 	delete[] line;
@@ -332,7 +317,6 @@ string readQRCode(const char* fpath){
 
 	return interpretedCode;
 }
-
 
 int checkRECV(int bytesIn, void* data) {
 	if (bytesIn <= -1) {

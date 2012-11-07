@@ -48,20 +48,14 @@ int main(int argc, char* argv[]) {
 
 	fflush(stdin);
 
-	//int bufSize = 512;
 	string kbinput;
-	//memset(&kbinput, 0, sizeof kbinput);
-	//char echoinput [bufSize];
-	//memset(&echoinput, 0, sizeof echoinput);
 	int readSize;
 
 	ifstream image;
 	unsigned int imagesize;
 	string data;
-	//string tempdata;
 	unsigned int datasize = 0;
 	unsigned int response = 0;
-	//snprintf(kbinput, 3,"%d", 10);
 
 	while (true) {
 
@@ -121,7 +115,7 @@ int main(int argc, char* argv[]) {
 		cout << "sent image size." << endl; //: "<<imagesize<<"B"<<endl;
 
 		//wait for an OK from the server
-		recv(sockfd, &response, 1, 0);
+		recv(sockfd, &response, sizeof(int), 0);
 		cout << "got response: size " << (response == 0 ? "OK" : "NOT OK")
 				<< endl;
 		if (response > 0)
@@ -144,8 +138,10 @@ int main(int argc, char* argv[]) {
 		//free dat RAM
 		delete[] contents;
 
+		//recv(sockfd, &datasize, 4, 0);
+
 		//wait for server response code
-		recv(sockfd, &response, 4, 0);
+		recv(sockfd, &response, sizeof(int), 0);
 		cout << "server response: "
 				<< (response == 0 ?
 						"QR CODE OK" :
@@ -159,26 +155,21 @@ int main(int argc, char* argv[]) {
 		if (response > 0)
 			continue;
 
-		cout << "got " << recv(sockfd, &datasize, 4, 0)
-						<< " bytes from the server" << endl;
-		cout << "got " << recv(sockfd, &datasize, 4, 0)
-				<< " bytes from the server" << endl;
-		cout << "will be expecting data of length " << datasize << endl;
+		recv(sockfd, &datasize, sizeof(int), 0);
 
-		datasize = 36;
-
-		//data = "";
 		readSize = 0;
-		char tempdata [datasize + 100];
+		char tempdata [datasize + 128];
+		memset(tempdata, 0, sizeof tempdata);
 
 		do {
 			readSize += recv(sockfd, &tempdata, sizeof tempdata, 0);
-			cout << "read a total of " << readSize << " B from server" << endl;
-			data += string(tempdata);
+
 			//tempdata = "";
 		} while (readSize < datasize);
 
-		cout << "QR data: \"" << data << "\"" << endl;
+		data = tempdata;
+
+		cout << "QR data: " << endl << data << "" << endl;
 
 		//account for the possibility of data getting smeared across packets
 
@@ -196,22 +187,3 @@ int main(int argc, char* argv[]) {
 	close(sockfd);
 	return 0;
 }
-/*
- void receive(int __fd, void *__buf, size_t __n){
- string tempdata="";
- int readSize = 0;
-
- do{
- readSize+=recv(__fd, &tempdata, __n, 0);
- __buf += tempdata;
- tempdata = "";
- }while(readSize<__n);
- }
-
- void sanitize_path(string *path){
- string cwd;
- getcwd(&cwd, 200);
- path->=='.'
- }
-
- */
