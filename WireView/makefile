@@ -21,7 +21,7 @@ all: wireview
 wireview: wireview.o
 	g++ wireview.o $(CFLAGS) -o wireview
 	
-wireview.o: wireview.cpp
+wireview.o: wireview.cpp wireview.h
 	g++ -c $(CFLAGS) wireview.cpp
 
 
