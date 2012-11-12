@@ -12,6 +12,9 @@
 
 #define MAC_LENGTH 6
 
+#define ETHERNET_LENGTH 14
+
+
 typedef struct {
 
 } ip_addr;
@@ -70,5 +73,26 @@ typedef struct {
 #define TCP_FLAGS		(TCP_FIN|TCP_SYN|TCP_RST|TCP_PUSH|TCP_ACK|TCP_ACK|TCP_URG|TCP_ECE|TCP_CWR)
 
 } tcp_header;
+
+
+int packetCount = 0; 	// Total number of packets.
+timeval startTime;		// Start date and time of the packet capture.
+timeval	durationTime;	// Duration of the packet capture in seconds with microsecond resolution.
+
+
+// Create two lists, one for unique senders and one for unique recipients, along with the total number of packets associated with each. This should be done at two layers: Ethernet and IP. For Ethernet, represent the addresses in hex-colon notation. For IP addresses, use the standard dotted decimal notation.
+// Create a list of machines participating in ARP, including their associated MAC addresses and, where possible, the associated IP addresses.
+// For UDP, create two lists for the unique ports seen: one for the source ports and one for the destination ports.
+// Report the average, minimum, and maximum packet sizes. The packet size refers to everything beyond the tcpdump header.
+
+void printStats();
+int processPCAP(pcap_t* cap);
+char* niceIPaddr(u_int32_t addr);
+char* niceMACaddr(u_int8_t addr[6]);
+void handler(u_char *user, struct pcap_pkthdr *phrd, u_char *pdata);
+int timeCompare(timeval* x, timeval* y);
+
+char* TCPpayload(const u_char* pdata, u_int size_ip);
+
 
 #endif
