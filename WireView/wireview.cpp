@@ -97,10 +97,10 @@ int processPCAP(pcap_t* cap) {
 	return result;
 }
 
-void handler(u_char* user, struct pcap_pkthdr* phrd, u_char* pdata) {
+void handler(u_char* user, struct pcap_pkthdr* pkthdr, u_char* pdata) {
 	packetCount++;
-	timeval* res = new timeval;
 
+	//timeval* res = new timeval;
 	// If this packet capture time is older than the start time, update the start time
 	//if (timeCompare(&(phrd->ts), &(), res)) {
 	//	startTime = phrd->ts;
@@ -111,8 +111,10 @@ void handler(u_char* user, struct pcap_pkthdr* phrd, u_char* pdata) {
 	ethSrcMap[niceMACaddr((uint8_t*) (ethernet->ether_shost), false)]++;
 
 	const ip* ip_header = (ip*) (pdata + sizeof(ether_header));
-	ipDstMap[niceIPaddr((in_addr*) &(ip_header->ip_dst), false)]++;
-	ipSrcMap[niceIPaddr((in_addr*) &(ip_header->ip_src), false)]++;
+	char* addr = niceIPaddr((in_addr*) &(ip_header->ip_dst), false);
+	ipDstMap[addr]++;
+	addr = niceIPaddr((in_addr*) &(ip_header->ip_src), false);
+	ipSrcMap[addr]++;
 
 	unsigned int size_ip = (ip_header->ip_hl) * 4; //header length //size_ip = IP_HL(ip)*4;
 
@@ -174,10 +176,10 @@ char* niceIPaddr(in_addr* addr) {
 
 //create a traditional human-readable IPv4 address
 char* niceIPaddr(in_addr* addr, bool print) {
-	char* ip = new char[15];
-	memset(ip, 0, sizeof(char) * 15);
+	char* ip = new char[16];
+	memset(ip, 0, sizeof(ip));
 
-	inet_ntop(AF_INET, addr, ip, 15);
+	inet_ntop(AF_INET, addr, ip, 16);
 
 	if (print) {
 		cout << ip << endl;
