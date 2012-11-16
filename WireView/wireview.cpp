@@ -3,6 +3,7 @@
 #include <string.h>
 #include <iostream>
 #include <pcap/pcap.h>
+#include <map>
 #include "wireview.h"
 
 #include <net/ethernet.h>
@@ -60,31 +61,24 @@ int main(int argc, char *argv[]) {
 
 void printStats() {
 	string prefix("    ");
+	int bufSize = 64;
+	char* buffer = new char[bufSize];
 
 	cout << endl;
 	printf("Total number of Packets: %i\n", packetCount);
 	printf("Start Time: %li\n", (long int) startTime.tv_sec);
 
-	cout << "Ethernet Source Statistics" << endl;
-	map<string, int>::const_iterator iter;
-	for (iter = ethSrcMap.begin(); iter != ethSrcMap.end(); ++iter) {
-		cout << prefix << iter->first << "\t" << iter->second << endl;
-	}
+	cout << "\nEthernet Source Statistics" << endl;
+	printMap(ethSrcMap, "    %-17s \t%i", 50);
 
-	cout << "Ethernet Destination Statistics" << endl;
-	for (iter = ethDstMap.begin(); iter != ethDstMap.end(); ++iter) {
-		cout << prefix << iter->first << "\t" << iter->second << endl;
-	}
+	cout << "\nEthernet Destination Statistics" << endl;
+	printMap(ethDstMap, "    %-17s \t%i", 50);
 
-	cout << "IP Source Statistics" << endl;
-	for (iter = ipSrcMap.begin(); iter != ipSrcMap.end(); ++iter) {
-		cout << prefix << iter->first << "\t" << iter->second << endl;
-	}
+	cout << "\nIP Source Statistics" << endl;
+	printMap(ipSrcMap, "    %-15s \t%i", 50);
 
-	cout << "IP Destination Statistics" << endl;
-	for (iter = ipDstMap.begin(); iter != ipDstMap.end(); ++iter) {
-		cout << prefix << iter->first << "\t" << iter->second << endl;
-	}
+	cout << "\nIP Destination Statistics" << endl;
+	printMap(ipDstMap, "    %-15s \t%i", 50);
 }
 
 int processPCAP(pcap_t* cap) {
@@ -113,18 +107,12 @@ void handler(u_char* user, struct pcap_pkthdr* phrd, u_char* pdata) {
 	//}
 
 	const ether_header* ethernet = (ether_header*) (pdata);
-	cout << niceMACaddr((uint8_t*) (ethernet->ether_dhost)) << endl;
-	ethDstMap[niceMACaddr((uint8_t*) (ethernet->ether_dhost))]++;
-
-	cout << niceMACaddr((uint8_t*) (ethernet->ether_shost)) << endl;
-	ethSrcMap[niceMACaddr((uint8_t*) (ethernet->ether_shost))]++;
+	ethDstMap[niceMACaddr((uint8_t*) (ethernet->ether_dhost), false)]++;
+	ethSrcMap[niceMACaddr((uint8_t*) (ethernet->ether_shost), false)]++;
 
 	const ip* ip_header = (ip*) (pdata + sizeof(ether_header));
-	cout << niceIPaddr((in_addr*)&(ip_header->ip_dst)) << endl;
-	ipDstMap[niceIPaddr((in_addr*)&(ip_header->ip_dst))]++;
-
-	cout << niceIPaddr((in_addr*)&(ip_header->ip_src)) << endl;
-	ipSrcMap[niceIPaddr((in_addr*)&(ip_header->ip_src))]++;
+	ipDstMap[niceIPaddr((in_addr*) &(ip_header->ip_dst), false)]++;
+	ipSrcMap[niceIPaddr((in_addr*) &(ip_header->ip_src), false)]++;
 
 	unsigned int size_ip = (ip_header->ip_hl) * 4; //header length //size_ip = IP_HL(ip)*4;
 
@@ -181,21 +169,55 @@ int timeCompare(timeval* x, timeval* y, timeval* result) {
 
 //create a traditional human-readable IPv4 address
 char* niceIPaddr(in_addr* addr) {
+	return niceIPaddr(addr, false);
+}
+
+//create a traditional human-readable IPv4 address
+char* niceIPaddr(in_addr* addr, bool print) {
 	char* ip = new char[15];
 	memset(ip, 0, sizeof(char) * 15);
 
 	inet_ntop(AF_INET, addr, ip, 15);
+
+	if (print) {
+		cout << ip << endl;
+	}
 
 	return ip;
 }
 
 //create a traditional human-readable MAC address
 char* niceMACaddr(u_int8_t addr[6]) {
+	return niceMACaddr(addr, false);
+}
+//create a traditional human-readable MAC address
+char* niceMACaddr(u_int8_t addr[6], bool print) {
 	char* mac = new char[17];
 	memset(mac, 0, sizeof(char) * 17);
 
 	sprintf(mac, "%02x:%02x:%02x:%02x:%02x:%02x", addr[0], addr[1], addr[2],
 			addr[3], addr[4], addr[5]);
 
+	if (print) {
+		cout << mac << endl;
+	}
+
 	return mac;
+}
+
+int printMap(map<string, int> map, string format, int bufSize) {
+	int i = 0;
+	char* buffer = new char[bufSize];
+
+	typedef std::map<std::string, int> map_type;
+	map_type::const_iterator iter;
+	for (iter = map.begin(); iter != map.end(); ++iter) {
+		snprintf(buffer, bufSize, format.c_str(), iter->first.c_str(),
+				iter->second);
+		cout << buffer << endl;
+		i+=iter->second;
+	}
+	snprintf(buffer, bufSize, format.c_str(), "  Total", i);
+	cout << buffer << endl;
+	return i;
 }

@@ -93,9 +93,12 @@ std::map<std::string, int> ethDstMap;
 // Report the average, minimum, and maximum packet sizes. The packet size refers to everything beyond the tcpdump header.
 
 void printStats();
+int printMap(std::map<std::string, int> map, std::string format, int bufSize);
 int processPCAP(pcap_t* cap);
 char* niceIPaddr(in_addr* addr);
+char* niceIPaddr(in_addr* addr, bool print);
 char* niceMACaddr(u_int8_t addr[6]);
+char* niceMACaddr(u_int8_t addr[6], bool print);
 void handler(u_char *user, struct pcap_pkthdr *phrd, u_char *pdata);
 int timeCompare(timeval* x, timeval* y);
 
