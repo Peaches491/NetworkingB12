@@ -110,23 +110,32 @@ void handler(u_char* user, struct pcap_pkthdr* pkthdr, u_char* pdata) {
 	ethDstMap[niceMACaddr((uint8_t*) (ethernet->ether_dhost), false)]++;
 	ethSrcMap[niceMACaddr((uint8_t*) (ethernet->ether_shost), false)]++;
 
+	int type = ntohs(ethernet->ether_type);
+
+//	printf("Typecode: %x\n", type);
+//	printf("IP      : %x\n", ETHERTYPE_IP);
+
 	const ip* ip_header = (ip*) (pdata + sizeof(ether_header));
 	char* addr = niceIPaddr((in_addr*) &(ip_header->ip_dst), false);
-	ipDstMap[addr]++;
-	addr = niceIPaddr((in_addr*) &(ip_header->ip_src), false);
-	ipSrcMap[addr]++;
 
-	unsigned int size_ip = (ip_header->ip_hl) * 4; //header length //size_ip = IP_HL(ip)*4;
+	switch (type) {
+	case ETHERTYPE_ARP:
+		printf("ARP\n");
+		break;
+	case ETHERTYPE_IP:
+		ipDstMap[addr]++;
+		addr = niceIPaddr((in_addr*) &(ip_header->ip_src), false);
+		ipSrcMap[addr]++;
+		//////////////////protocol checking
+		if (ip_header->ip_p == IPPROTO_TCP) {
+			//printf("\t* Found TCP packet\n");
+			//cout << TCPpayload(pdata, size_ip) << endl;
+		}
 
-	if (size_ip < 20) {
-		printf("\t* Invalid IP header length: %u bytes\n", size_ip);
-		return;
-	}
-
-	//////////////////protocol checking
-	if (ip_header->ip_p == IPPROTO_TCP) {
-		//printf("\t* Found TCP packet\n");
-		//cout << TCPpayload(pdata, size_ip) << endl;
+		break;
+	default:
+		printf("~else~\n");
+		break;
 	}
 
 	//if(ip->protocol == IPPro)
@@ -217,7 +226,7 @@ int printMap(map<string, int> map, string format, int bufSize) {
 		snprintf(buffer, bufSize, format.c_str(), iter->first.c_str(),
 				iter->second);
 		cout << buffer << endl;
-		i+=iter->second;
+		i += iter->second;
 	}
 	snprintf(buffer, bufSize, format.c_str(), "  Total", i);
 	cout << buffer << endl;
