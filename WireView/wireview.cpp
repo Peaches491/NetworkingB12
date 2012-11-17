@@ -61,12 +61,10 @@ int main(int argc, char *argv[]) {
 
 void printStats() {
 	string prefix("    ");
-	int bufSize = 64;
-	char* buffer = new char[bufSize];
 
 	cout << endl;
 	printf("Total number of Packets: %i\n", packetCount);
-	printf("Start Time: %li\n", (long int) startTime.tv_sec);
+	printf("Start Time: %li\n", (long int) startTime->tv_sec);
 
 	cout << "\nEthernet Source Statistics" << endl;
 	printMap(ethSrcMap, "    %-17s \t%i", 50);
@@ -102,9 +100,13 @@ void handler(u_char* user, struct pcap_pkthdr* pkthdr, u_char* pdata) {
 
 	//timeval* res = new timeval;
 	// If this packet capture time is older than the start time, update the start time
-	//if (timeCompare(&(phrd->ts), &(), res)) {
-	//	startTime = phrd->ts;
-	//}
+
+	if (startTime->tv_sec == 0) {
+		startTime = &(pkthdr->ts);
+	} else if (timeCompare(&(pkthdr->ts), (timeval*) startTime) == 1) {
+		printf("UPDATING TIME");
+		startTime = &(pkthdr->ts);
+	}
 
 	const ether_header* ethernet = (ether_header*) (pdata);
 	ethDstMap[niceMACaddr((uint8_t*) (ethernet->ether_dhost), false)]++;
@@ -120,18 +122,22 @@ void handler(u_char* user, struct pcap_pkthdr* pkthdr, u_char* pdata) {
 
 	switch (type) {
 	case ETHERTYPE_ARP:
-		printf("ARP\n");
+		//printf("ARP\n");
 		break;
 	case ETHERTYPE_IP:
 		ipDstMap[addr]++;
 		addr = niceIPaddr((in_addr*) &(ip_header->ip_src), false);
 		ipSrcMap[addr]++;
-		//////////////////protocol checking
-		if (ip_header->ip_p == IPPROTO_TCP) {
+
+		switch (ip_header->ip_p) {
+		case IPPROTO_UDP:
+
+			break;
+		case IPPROTO_TCP:
 			//printf("\t* Found TCP packet\n");
 			//cout << TCPpayload(pdata, size_ip) << endl;
+			break;
 		}
-
 		break;
 	default:
 		printf("~else~\n");
@@ -157,6 +163,21 @@ char* TCPpayload(const u_char* pdata, u_int size_ip) {
 	return payload;
 }
 
+int timeCompare(timeval* x, timeval* y) {
+	if (x->tv_usec < y->tv_usec) {
+		int nsec = (y->tv_usec - x->tv_usec) / 1000000 + 1;
+		y->tv_usec -= 1000000 * nsec;
+		y->tv_sec += nsec;
+	}
+	if (x->tv_usec - y->tv_usec > 1000000) {
+		int nsec = (x->tv_usec - y->tv_usec) / 1000000;
+		y->tv_usec += 1000000 * nsec;
+		y->tv_sec -= nsec;
+	}
+
+	/* Return 1 if result is negative. */
+	return x->tv_sec < y->tv_sec;
+}
 int timeCompare(timeval* x, timeval* y, timeval* result) {
 	if (x->tv_usec < y->tv_usec) {
 		int nsec = (y->tv_usec - x->tv_usec) / 1000000 + 1;
@@ -182,7 +203,6 @@ int timeCompare(timeval* x, timeval* y, timeval* result) {
 char* niceIPaddr(in_addr* addr) {
 	return niceIPaddr(addr, false);
 }
-
 //create a traditional human-readable IPv4 address
 char* niceIPaddr(in_addr* addr, bool print) {
 	char* ip = new char[16];
