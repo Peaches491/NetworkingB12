@@ -6,7 +6,7 @@
 #include <string.h>
 
 // Set the following port to a unique number:
-#define MYPORT 5950
+#define MYPORT 58008
 
 int create_cs3516_socket() {
     int sock;

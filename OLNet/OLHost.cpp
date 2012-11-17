@@ -1,13 +1,15 @@
 //============================================================================
 // Name        : OLHost.cpp
-// Author      : 
-// Description : Hello World in C++, Ansi-style
+// Author      : Daniel Miller and Kevin Janesch
+// Description :
 //============================================================================
 
 #include <iostream>
 using namespace std;
 
 int main() {
-	cout << "Hello World!!!" << endl; // prints Hello World!!!
+
+
+
 	return 0;
 }
