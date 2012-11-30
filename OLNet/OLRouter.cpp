@@ -43,7 +43,7 @@ int main(int argc, char* argv[]) {
 		packet* p = new packet;
 		p->header.ip_header.ip_ttl = 12;
 		if (p->header.ip_header.ip_ttl != 0) {
-			p->header.ip_header.ip_ttl -= 1;
+			//p->header.ip_header.ip_ttl -= 1;
 		} else {
 			dropPacket(p);
 		}
