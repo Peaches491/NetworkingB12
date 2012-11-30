@@ -8,9 +8,9 @@
 #ifndef OLPACKET_H_
 #define OLPACKET_H_
 
-
 #include <netinet/ip.h>
 #include <netinet/udp.h>
+#include <arpa/inet.h>
 #include "cs3516sock.h"
 
 typedef struct _packethdr {
@@ -28,26 +28,37 @@ typedef struct _packet {
 
 } packet;
 
+int sendPacket(int sock, packet* p, unsigned long nextIP);
 
-int sendPacket(int sock, packet* p, unsigned long nextIP){
+int createAndSendPacket(int sock, char* data, size_t size, char* ip) {
+	unsigned int addr = 0;
+	inet_pton(AF_INET, ip, &addr);
+
+	char* dataBuf = new char[size];
+	memcpy(dataBuf, data, size);
+
+	packet* p = new packet;
+	p->data = dataBuf;
+	p->header.dataSize = size;
+	return sendPacket(sock, p, addr);
+}
+
+int sendPacket(int sock, packet* p, unsigned long nextIP) {
 
 	int bufSize = sizeof(packethdr) + p->header.dataSize;
-
-
 
 	char* buffer = new char[bufSize];
 	memcpy(buffer, p, sizeof(packethdr));
 	memcpy(buffer + sizeof(packethdr), p->data, p->header.dataSize);
 
 	std::cout << "Buff: " << bufSize << " bytes" << std::endl;
-	std::cout << buffer+sizeof(packethdr) << std::endl;
+	std::cout << buffer + sizeof(packethdr) << std::endl;
 
-	int size = cs3516_send(sock, (char*)buffer, bufSize, nextIP);
+	int size = cs3516_send(sock, (char*) buffer, bufSize, nextIP);
 
 	//delete buffer;
 
 	return size;
 }
-
 
 #endif /* OLPACKET_H_ */

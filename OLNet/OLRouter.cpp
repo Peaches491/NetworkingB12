@@ -13,6 +13,7 @@ void dropPacket(packet* p);
 void printPacket(packet* p);
 int runRouter(int argc, char* argv[]);
 int runHost(int argc, char* argv[]);
+int getFileSize(FILE* fd);
 
 int main(int argc, char* argv[]) {
 
@@ -47,8 +48,16 @@ int main(int argc, char* argv[]) {
 int runRouter(int argc, char* argv[]) {
 	cout << "---------- Router Mode Started" << endl;
 
-	//		struct addrinfo hints;
-	//		struct addrinfo* res;
+	int sock = create_cs3516_socket();
+	char* buf = new char[1000];
+	int recv = cs3516_recv(sock, buf, 1000);
+
+	cout << "I got some data! " << recv << endl;
+	char* data = buf + sizeof(packethdr);
+	cout << data << endl;
+
+	////////////////////////////////////
+
 	char* testWord = (char*) "0123456789";
 
 	packet* p = new packet;
@@ -66,8 +75,6 @@ int runRouter(int argc, char* argv[]) {
 	p->header.dataSize = strlen(p->data) + 1;
 	cout << endl;
 
-	int sock = create_cs3516_socket();
-
 	unsigned int addr = 0;
 	inet_pton(AF_INET, "192.168.132.164", &addr);
 
@@ -83,6 +90,16 @@ int runHost(int argc, char* argv[]) {
 
 	int sock = create_cs3516_socket();
 
+	if(argc > 1){
+		FILE* fd = fopen(argv[2], "r");
+		char * dataBuf = new char[1000];
+
+		int size = getFileSize(fd);
+		int bytesIn = fread((void*)dataBuf, 1, 1000, fd);
+		cout << bytesIn << endl;
+		int sent = createAndSendPacket(sock, dataBuf, bytesIn, argv[3]);
+	}
+
 	char* buf = new char[1000];
 
 	while (1) {
@@ -95,7 +112,7 @@ int runHost(int argc, char* argv[]) {
 		cout << "Recv: " << recv << " bytes" << endl;
 
 		cout << "Header Size: " << sizeof(packethdr) << " bytes" << endl;
-		cout << "Data Size: " << ((packet*) buf)->header.dataSize << " bytes"
+		cout << "Data Size: " << p->header.dataSize << " bytes"
 				<< endl;
 
 		printPacket(p);
@@ -104,6 +121,14 @@ int runHost(int argc, char* argv[]) {
 		cout << data << endl;
 	}
 	return 0;
+}
+
+int getFileSize(FILE* fd){
+	int size = -1;
+	fseek(fd, 0, SEEK_END);
+	size = ftell(fd);
+	fseek(fd, 0, SEEK_SET);
+	return size;
 }
 
 void dropPacket(packet* p) {
