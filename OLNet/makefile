@@ -10,14 +10,29 @@ CFLAGS = -lpcap -g -Wall
 
 
 
-all: router
+all: node
 	
 		
-router: router.o
-	g++ router.o $(CFLAGS) -o router
+node: node.o host.o router.o packet.o cs.o
+	g++ node.o router.o host.o packet.o cs.o $(CFLAGS) -o node
 	
-router.o: OLRouter.cpp 
-	g++ -c $(CFLAGS) OLRouter.cpp -o router.o
+	
+	
+node.o: Node.cpp 
+	g++ -c $(CFLAGS) Node.cpp -o node.o
+
+router.o: Router.cpp 
+	g++ -c $(CFLAGS) Router.cpp -o router.o
+	
+host.o: Host.cpp 
+	g++ -c $(CFLAGS) Host.cpp -o host.o
+	
+packet.o: Packet.cpp 
+	g++ -c $(CFLAGS) Packet.cpp -o packet.o
+	
+cs.o: cs3516sock.cpp 
+	g++ -c $(CFLAGS) cs3516sock.cpp -o cs.o
+
 
 
 clean:
