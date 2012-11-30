@@ -108,5 +108,5 @@ void printPacket(packet* p){
 	cout << "PACKET INFO: " << endl;
 	cout << "\tOL Source: " << inet_ntoa(p->header.ip_header.ip_src) << endl;
 	cout << "\tOL Dest:   " << inet_ntoa(p->header.ip_header.ip_dst) << endl;
-	cout << "\tOL TTL:    " << inet_ntoa(p->header.ip_header.ip_dst) << endl;
+	cout << "\tOL TTL:    " << p->header.ip_header.ip_ttl << endl;
 }
