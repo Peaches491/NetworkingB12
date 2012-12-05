@@ -13,9 +13,12 @@
 #include "Packet.h"
 
 
-int createAndSendPacket(int sock, char* data, size_t size, char* ip) {
-	unsigned int addr = 0;
-	inet_pton(AF_INET, ip, &addr);
+int createAndSendPacket(int sock, char* data, size_t size, char* destIP, char* routerIP, std::string filename) {
+	unsigned int destAddr = 0;
+	inet_pton(AF_INET, destIP, &destAddr);
+
+	unsigned int routerAddr = 0;
+	inet_pton(AF_INET, routerIP, &routerAddr);
 
 	char* dataBuf = new char[size];
 	memcpy(dataBuf, data, size);
@@ -23,21 +26,25 @@ int createAndSendPacket(int sock, char* data, size_t size, char* ip) {
 	packet* p = new packet;
 	p->data = dataBuf;
 	p->header.udp_header.len = size;
-	return sendPacket(sock, p, addr);
+	p->header.ip_header.ip_dst.s_addr = destAddr;
+	//strncpy(p->datahdr.filename, filename.c_str(), FILENAME_LENGTH);
+
+
+	return sendPacket(sock, p, routerAddr);
 }
 
 int sendPacket(int sock, packet* p, unsigned long nextIP) {
 
+	//int bufSize = sizeof(packethdr) + sizeof(dataheader) + p->header.udp_header.len;
 	int bufSize = sizeof(packethdr) + p->header.udp_header.len;
 
 	char* buffer = new char[bufSize];
 	memcpy(buffer, p, sizeof(packethdr));
 	memcpy(buffer + sizeof(packethdr), p->data, p->header.udp_header.len);
 
-	std::cout << "Buff: " << bufSize << " bytes" << std::endl;
-	std::cout << buffer + sizeof(packethdr) << std::endl;
-
 	int size = cs3516_send(sock, (char*) buffer, bufSize, nextIP);
+
+	printPacket((packet*)buffer);
 
 	//delete buffer;
 
@@ -67,8 +74,11 @@ void printPacket(packet* p) {
 
 	printf("  Data---------------------------------\n");
 
-	char* data = (char*)((char*)p + sizeof(packethdr));
-	std::cout << data << std::endl;
+	char* data = (char*)(((void*)p) + sizeof(packethdr));
+	for (int i = 0; i < p->header.udp_header.len; i++) {
+		std::cout << data[i];
+	}
+	std::cout << std::endl;
 	printf("END PACKET-----------------------------\n\n");
 }
 

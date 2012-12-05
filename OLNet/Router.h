@@ -11,6 +11,6 @@
 #include "Packet.h"
 
 void dropPacket(packet* p);
-int runRouter(int argc, char* argv[]);
+int runRouter(char* configFile);
 
 #endif /* ROUTER_H_ */

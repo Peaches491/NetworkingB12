@@ -36,6 +36,6 @@ cs.o: cs3516sock.cpp
 
 
 clean:
-	rm -f *.o router host
+	rm -f *.o node
 
 

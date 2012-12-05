@@ -8,7 +8,7 @@
 #ifndef HOST_H_
 #define HOST_H_
 
-int runHost(int argc, char* argv[]);
+int runHost(char* file, char* destIPl, char* routerIP);
 int getFileSize(FILE* fd);
 
 #endif /* HOST_H_ */

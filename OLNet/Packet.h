@@ -13,9 +13,10 @@
 #include <arpa/inet.h>
 #include "cs3516sock.h"
 
+#define FILENAME_LENGTH (32)
 #define MAX_PAYLOAD (1000)
+//#define MAX_PAYLOAD (1000) - sizeof(dataheader)
 #define MAX_PACKET_SIZE (sizeof(packethdr) + MAX_PAYLOAD)
-
 
 ///////////////////////// Types
 typedef struct _packethdr {
@@ -26,19 +27,25 @@ typedef struct _packethdr {
 
 } packethdr;
 
+//typedef struct _dataheader {
+//	char filename[FILENAME_LENGTH];
+//	unsigned int offset;
+//} dataheader;
+
 typedef struct _packet {
 
 	packethdr header;
+	//dataheader datahdr;
 	char* data;
 
 } packet;
 
 ///////////////////////// Function Definitions
-int createAndSendPacket(int sock, char* data, size_t size, char* ip);
+int createAndSendPacket(int sock, char* data, size_t size, char* destIP,
+		char* routerIP, std::string filename);
 void printPacket(packet* p);
 int sendPacket(int sock, packet* p, unsigned long nextIP);
 
 ///////////////////////// Functions
-
 
 #endif /* OLPACKET_H_ */

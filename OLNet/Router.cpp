@@ -14,17 +14,34 @@
 
 using namespace std;
 
-int runRouter(int argc, char* argv[]) {
+#define VERBOSE (0)
+
+int runRouter(char* configFile) {
 	cout << "---------- Router Mode Started" << endl;
 
 	int sock = create_cs3516_socket();
 	char* buf = new char[MAX_PACKET_SIZE];
+	packet* p;
+	char* data;
 
 	while(1){
 		bzero(buf, MAX_PACKET_SIZE);
 		int recv = cs3516_recv(sock, buf, MAX_PACKET_SIZE);
-		//cout << "I got some data! " << recv << endl;
-		printPacket((packet*)buf);
+		p = (packet*)buf;
+		data = (char*)(p + sizeof(packethdr));
+
+		if(VERBOSE){
+			printPacket(p);
+		} else {
+			cout << "Routing packet of size " << recv << " bytes." << endl;
+		}
+
+//		unsigned int addr = 0;
+//		inet_pton(AF_INET, "192.168.132.165", &addr);
+		int send = cs3516_send(sock, buf, recv, p->header.ip_header.ip_dst.s_addr);
+
+
+
 	}
 	////////////////////////////////////
 
