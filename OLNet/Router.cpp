@@ -8,6 +8,8 @@
 #include <iostream>
 #include <arpa/inet.h>
 #include <string.h>
+#include <stdint.h>
+#include "LPMTree.h"
 #include "Router.h"
 #include "Packet.h"
 #include "cs3516sock.h"
@@ -17,6 +19,14 @@ using namespace std;
 #define VERBOSE (0)
 
 int runRouter(char* configFile) {
+
+	LPMTree* tree = new LPMTree;
+	tree->insert(7, (uint32_t)3, 4);
+	tree->insert(6, (uint32_t)8, 4);
+	tree->insert(2, (uint32_t)1, 2);
+	tree->print();
+
+
 	cout << "---------- Router Mode Started" << endl;
 
 	int sock = create_cs3516_socket();

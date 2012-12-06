@@ -13,8 +13,8 @@ CFLAGS = -lpcap -g -Wall
 all: node
 	
 		
-node: node.o host.o router.o packet.o cs.o
-	g++ node.o router.o host.o packet.o cs.o $(CFLAGS) -o node
+node: node.o host.o router.o packet.o cs.o tree.o
+	g++ node.o router.o host.o packet.o cs.o tree.o $(CFLAGS) -o node
 	
 	
 	
@@ -33,7 +33,9 @@ packet.o: Packet.cpp
 cs.o: cs3516sock.cpp 
 	g++ -c $(CFLAGS) cs3516sock.cpp -o cs.o
 
-
+tree.o: LPMTree.cpp 
+	g++ -c $(CFLAGS) LPMTree.cpp -o tree.o
+	
 
 clean:
 	rm -f *.o node
