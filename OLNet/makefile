@@ -6,7 +6,7 @@
 
 
 
-CFLAGS = -lpcap -g -Wall 
+CFLAGS = -lpcap -g -pedantic 
 
 
 

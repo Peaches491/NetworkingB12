@@ -20,11 +20,15 @@ using namespace std;
 
 int runRouter(char* configFile) {
 
-	LPMTree* tree = new LPMTree;
-	tree->insert(7, (uint32_t)3, 4);
-	tree->insert(6, (uint32_t)8, 4);
-	tree->insert(2, (uint32_t)1, 2);
-	tree->print();
+	LPMTree* tree = new LPMTree();
+	tree->insert(7, (uint32_t)0x30000000, 4);
+	tree->insert(3, (uint32_t)0x80000000, 2);
+	tree->insert(6, (uint32_t)0x70000000, 4);
+	tree->insert(2, (uint32_t)0x40000000, 2);
+	cout.flush();
+	//tree->print();
+
+	cout << "This should be a '7': " << tree->get((uint32_t)0x30000000, 4) << endl;
 
 
 	cout << "---------- Router Mode Started" << endl;

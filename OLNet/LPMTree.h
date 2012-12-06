@@ -21,25 +21,24 @@ private:
 	int queue;
 
 public:
-	LPMTree() {
-		one = NULL;
-		zero = NULL;
-		queue = 0;
-	}
-
+	LPMTree();
 	bool isEmpty() const {
 		return (one == NULL) && (zero == NULL);
 	}
-	void print_inorder();
-	void inorder(LPMTree*);
-	void print_preorder();
-	void preorder(LPMTree*);
-	void print_postorder();
-	void postorder(LPMTree*);
+//	void print_inorder();
+//	void inorder(LPMTree*);
+//	void print_preorder();
+//	void preorder(LPMTree*);
+//	void print_postorder();
+//	void postorder(LPMTree*);
+//	void remove(int);
+
 	void insert(int queueNum, uint32_t ip, int size, int currDepth);
 	void insert(int queueNum, uint32_t ip, int size);
-	void remove(int);
+	int  get(uint32_t ip, int size);
+	int  get(uint32_t ip, int size, int currDepth);
 	void print();
+	void print(string depth);
 
 	virtual ~LPMTree();
 };
