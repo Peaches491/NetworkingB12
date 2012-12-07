@@ -13,7 +13,10 @@
 #include "Packet.h"
 
 
-int createAndSendPacket(int sock, char* data, size_t size, char* destIP, char* routerIP, std::string filename) {
+int createAndSendPacket(int sock, int* id, char* data, size_t size, char* srcIP, char* destIP, char* routerIP, int ttl, std::string filename) {
+	unsigned int srcAddr = 0;
+	inet_pton(AF_INET, srcIP, &srcAddr);
+
 	unsigned int destAddr = 0;
 	inet_pton(AF_INET, destIP, &destAddr);
 
@@ -25,11 +28,26 @@ int createAndSendPacket(int sock, char* data, size_t size, char* destIP, char* r
 
 	packet* p = new packet;
 	p->data = dataBuf;
-	p->header.udp_header.len = size;
+	p->header.ip_header.ip_src.s_addr = srcAddr;
 	p->header.ip_header.ip_dst.s_addr = destAddr;
+	p->header.ip_header.ip_v = 4;
+	p->header.ip_header.ip_hl = 5;
+	p->header.ip_header.ip_len = 20;
+	p->header.ip_header.ip_id = *id;
+	p->header.ip_header.ip_off = 0;
+	p->header.ip_header.ip_sum = 0;
+	p->header.ip_header.ip_ttl = ttl;
+	p->header.ip_header.ip_p = IPPROTO_UDP;
+
+	p->header.udp_header.dest = MYPORT;
+	p->header.udp_header.source = MYPORT;
+	p->header.udp_header.check = 0;
+	p->header.udp_header.len = size;
+
+
 	//strncpy(p->datahdr.filename, filename.c_str(), FILENAME_LENGTH);
 
-
+	(*id)++;
 	return sendPacket(sock, p, routerAddr);
 }
 

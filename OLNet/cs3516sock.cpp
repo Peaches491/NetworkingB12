@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "cs3516sock.h"
+#include "Packet.h"
 
 int create_cs3516_socket() {
     int sock;
@@ -57,6 +58,6 @@ int cs3516_send(int sock, char *buffer, int buff_size, unsigned long nextIP) {
     n = sendto(sock, buffer, buff_size, 0,
                (struct sockaddr *)&to, tolen);
 
-    return n;
+    return n-sizeof(packethdr);
 }
 

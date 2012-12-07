@@ -11,6 +11,7 @@
 #include <netinet/ip.h>
 #include <netinet/udp.h>
 #include <arpa/inet.h>
+#include <string>
 #include "cs3516sock.h"
 
 #define FILENAME_LENGTH (32)
@@ -41,8 +42,8 @@ typedef struct _packet {
 } packet;
 
 ///////////////////////// Function Definitions
-int createAndSendPacket(int sock, char* data, size_t size, char* destIP,
-		char* routerIP, std::string filename);
+int createAndSendPacket(int sock, int* id, char* data, size_t size, char* srcIP, char* destIP,
+		char* routerIP, int ttl, std::string filename);
 void printPacket(packet* p);
 int sendPacket(int sock, packet* p, unsigned long nextIP);
 
