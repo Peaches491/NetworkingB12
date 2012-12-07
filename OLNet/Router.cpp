@@ -174,7 +174,8 @@ int runRouter(in_addr* ip, int queueSize) {
 			logPacket(p, MAX_SENDQ_EXCEEDED);
 			continue;
 		}
-
+		packet pac;
+		pQ.push(pac);
 
 		int send = cs3516_send(sock, buf, recv,
 				p->header.ip_header.ip_dst.s_addr);
