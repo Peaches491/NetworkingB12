@@ -6,7 +6,7 @@
 
 
 
-CFLAGS = -g
+CFLAGS = -g -pthread -std=c++0x
 #CFLAGS = -g -Wall  
 
 
@@ -14,8 +14,8 @@ CFLAGS = -g
 all: node
 	
 		
-node: node.o host.o router.o packet.o cs.o tree.o
-	g++ node.o router.o host.o packet.o cs.o tree.o $(CFLAGS) -o node
+node: node.o host.o router.o packet.o cs.o tree.o pq.o
+	g++ node.o router.o host.o packet.o cs.o tree.o pq.o $(CFLAGS) -o node
 	
 	
 	
@@ -36,7 +36,9 @@ cs.o: cs3516sock.cpp
 
 tree.o: LPMTree.cpp 
 	g++ -c $(CFLAGS) LPMTree.cpp -o tree.o
-	
+
+pq.o: PacketQueue.cpp 
+	g++ -c $(CFLAGS) PacketQueue.cpp -o pq.o	
 
 clean:
 	rm -f *.o node

@@ -5,23 +5,27 @@
  *      Author: cs3516
  */
 
-#include <iostream>
-#include <fstream>
-#include <arpa/inet.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <string.h>
 #include <stdint.h>
 #include <signal.h>
-#include <arpa/inet.h>
-#include <fcntl.h>
 #include <assert.h>
 #include <sys/time.h>
+#include <arpa/inet.h>
 #include <map>
 #include <queue>
+#include <mutex>
+#include <sstream>
+#include <fstream>
+#include <iostream>
 
-#include "LPMTree.h"
+
 #include "Router.h"
 #include "Packet.h"
+#include "LPMTree.h"
 #include "cs3516sock.h"
+#include "PacketQueue.h"
 
 using namespace std;
 
@@ -29,7 +33,7 @@ using namespace std;
 
 LPMTree* tree = new LPMTree();
 ofstream log;
-std::map<int, const char*> typeString;
+std::map<int, string> typeString;
 
 static void terminate(int param) {
 	cout << "\nTerminating router..." << endl;
@@ -54,10 +58,10 @@ int runRouter(in_addr* ip, int queueSize) {
 	signal(SIGABRT, terminate);
 	signal(SIGTERM, terminate);
 
-	typeString[TTL_EXPIRED] = "TTL_EXPIRED";
-	typeString[MAX_SENDQ_EXCEEDED] = (const char*) "MAX_SENDQ_EXCEEDED";
-	typeString[NO_ROUTE_TO_HOST] = (const char*) "NO_ROUTE_TO_HOST";
-	typeString[SENT_OKAY] = (const char*) "SENT_OKAY";
+	typeString[TTL_EXPIRED] = string("TTL_EXPIRED");
+	typeString[MAX_SENDQ_EXCEEDED] = string("MAX_SENDQ_EXCEEDED");
+	typeString[NO_ROUTE_TO_HOST] = string("NO_ROUTE_TO_HOST");
+	typeString[SENT_OKAY] = string("SENT_OKAY");
 
 	in_addr addr;
 	bool testing = false;
@@ -129,25 +133,41 @@ int runRouter(in_addr* ip, int queueSize) {
 	char* buf = new char[MAX_PACKET_SIZE];
 	packet* p;
 	char* data;
-	timeval t;
+	timeval t {0};
 	t.tv_usec = 10;
 	fd_set set;
 	FD_SET(sock, &set);
 
+	//PacketQueue q = new PacketQueue(queueSize, delayList[1][2]);
+	int toDev = 0;
+	int fromDev = 0;
+	PacketQueue* q = new PacketQueue(sock, queueSize, toDev, fromDev);
+
+	cout << "runQueue()" << endl;
+	q->runQueue();
+	cout << "returned" << endl;
+
+	packet* newPacket = new packet;
+
 	while (1) {
 		bzero(buf, MAX_PACKET_SIZE);
 
-		timeval t2;
-		fd_set set2;
-		bool selecting = true;
+		timeval t2 {0};
+		fd_set set2 {0};
 
+		cout << "Starting select..." << endl;
+		bool selecting = true;
 		while (selecting) {
 			memcpy(&t2, &t, sizeof(timeval));
 			memcpy(&set2, &set, sizeof(fd_set));
 			int test = select(sock + 1, &set2, NULL, NULL, &t2);
+			//cout << test << endl;
+			if(test == -1){
+				perror("");
+				exit(1);
+			}
 			if (test > 0) {
 				selecting = false;
-				//cout << test << endl;
 			}
 		}
 
@@ -170,15 +190,21 @@ int runRouter(in_addr* ip, int queueSize) {
 		}
 
 		// If there is no space for the packet, drop it
-		if(pQ.size() >= queueSize){
+		if(q->getQueue()->size() >= q->queueSize){
 			logPacket(p, MAX_SENDQ_EXCEEDED);
 			continue;
 		}
-		packet pac;
-		pQ.push(pac);
 
-		int send = cs3516_send(sock, buf, recv,
-				p->header.ip_header.ip_dst.s_addr);
+		newPacket = new packet;
+		memcpy(newPacket, p, recv);
+
+		pthread_mutex_lock(q->getQueueLock());
+		q->getQueue()->push(newPacket);
+		cout << "ENQUEUE " << q->getQueue()->size() << endl;
+		pthread_mutex_unlock(q->getQueueLock());
+
+		//int send = cs3516_send(sock, buf, recv,	p->header.ip_header.ip_dst.s_addr);
+
 		logPacket(p, SENT_OKAY, p->header.ip_header.ip_dst);
 		usleep(100);
 	}
@@ -192,25 +218,26 @@ void logPacket(packet* p, LogType type) {
 
 void logPacket(packet* p, LogType type, in_addr nextHop) {
 
-	string delim = string(" ");
+	char* delim = " ";
+	char* str = new char[100];
 
-	cout << time(NULL) << delim;
-	cout << inet_ntoa(p->header.ip_header.ip_src) << delim;
-	cout << inet_ntoa(p->header.ip_header.ip_dst) << delim;
-	cout << (p->header.ip_header.ip_id) << delim;
-	cout << typeString[type];
-	if (type == SENT_OKAY)
-		cout << delim << inet_ntoa(nextHop);
-	cout << endl;
-	cout.flush();
 
-	log << time(NULL) << delim;
-	log << inet_ntoa(p->header.ip_header.ip_src) << delim;
-	log << inet_ntoa(p->header.ip_header.ip_dst) << delim;
-	log << (p->header.ip_header.ip_id) << delim;
-	log << typeString[type];
-	if (type == SENT_OKAY)
-		log << delim << inet_ntoa(nextHop);
-	log << endl;
-	log.flush();
+
+	if (type == SENT_OKAY){
+		sprintf(str, "%ld%s%s%s%s%s%d%s%s",
+					(long int)time(NULL), delim,
+					inet_ntoa(p->header.ip_header.ip_src), delim,
+					inet_ntoa(p->header.ip_header.ip_dst), delim,
+					p->header.ip_header.ip_id, delim,
+					(typeString[type]).c_str(), delim, inet_ntoa(nextHop));
+	} else {
+		sprintf(str, "%ld%s%s%s%s%s%d%s%s", (long int) time(NULL), delim,
+				inet_ntoa(p->header.ip_header.ip_src), delim,
+				inet_ntoa(p->header.ip_header.ip_dst), delim,
+				p->header.ip_header.ip_id, delim, (typeString[type]).c_str());
+	}
+
+
+	cout << str << endl;
+	log << str << endl;
 }
