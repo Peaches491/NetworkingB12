@@ -7,27 +7,25 @@
 
 #include <pthread.h>
 #include <string.h>
-#include <mutex>
 #include <queue>
 
 #include "PacketQueue.h"
+#include "PacketLogger.h"
 
 namespace std {
 
 void* print_message(void* queue);
 
-PacketQueue::PacketQueue(int socket, unsigned int size, int dest, int source) {
-
-
+PacketQueue::PacketQueue(int socket, unsigned int size, int dest, int source,
+		PacketLogger* logPtr) {
 	sock = socket;
-
 	//TODO Remove once the delay list is populated
 	//sendRate = delayList[source][dest];
 	sendRate = 5;
 	queueSize = size;
 	running = false;
-
 	queueLock = PTHREAD_MUTEX_INITIALIZER;
+	log = logPtr;
 
 	this->thread = new pthread_t;
 }
@@ -37,10 +35,15 @@ PacketQueue::~PacketQueue() {
 	pthread_join(*(this->getThread()), 0);
 }
 
+void PacketQueue::enqueue(packethdr* p) {
+	this->getQueue()->push(p);
+}
+
 pthread_t* PacketQueue::runQueue() {
 	cout << "Starting thread... ";
 	this->running = true;
-	if (pthread_create(this->thread, NULL, (&(print_message)), (void*) this) == 0){
+	if (pthread_create(this->thread, NULL, (&(print_message)), (void*) this)
+			== 0) {
 		cout << "Done." << endl;
 		return this->thread;
 	} else {
@@ -50,17 +53,18 @@ pthread_t* PacketQueue::runQueue() {
 }
 
 void* print_message(void* ptr) {
-	PacketQueue* q = (PacketQueue*)ptr;
-	packet* p = new packet;
+	PacketQueue* q = (PacketQueue*) ptr;
+	packethdr* p = new packethdr;
 	bool exiting = false;
+	bool verbose = false;
 
-	//char* buf = new char[MAX_PACKET_SIZE];
+	char* buf = new char[MAX_PACKET_SIZE];
 
-	while(!exiting) {
-		//bzero(buf, MAX_PACKET_SIZE);
+	while (!exiting) {
+		bzero(buf, MAX_PACKET_SIZE);
 
-		while(q->getQueue()->empty()){
-			if(!q->isRunning()) {
+		while (q->getQueue()->empty()) {
+			if (!q->isRunning()) {
 				exiting = true;
 				break;
 			}
@@ -68,22 +72,38 @@ void* print_message(void* ptr) {
 		}
 
 		pthread_mutex_lock(q->getQueueLock());
-		packet* front = q->getQueue()->front();
-		int packetSize = (front->header.udp_header.len + sizeof(packethdr));
-//		pthread_mutex_unlock(q->getQueueLock());
-//
-//		//memcpy(p, front, packetSize);
-//		pthread_mutex_lock(q->getQueueLock());
+		packethdr* front = q->getQueue()->front();
+		//((packethdr*) front);
+		int packetSize = (front->udp_header.len + sizeof(packethdr));
+
+		memcpy(buf, (q->getQueue()->front()), MAX_PACKET_SIZE);
+
 		int was = q->getQueue()->size();
 		q->getQueue()->pop();
 		int is = q->getQueue()->size();
 		pthread_mutex_unlock(q->getQueueLock());
 
-		cout << "Sending packet... " << endl;
-		cout << "Queue size was " << was << endl;
-		cout << "Queue size is now " << is << endl;
-		int send = cs3516_send(q->getSocket(), (char*)p, packetSize, p->header.ip_header.ip_dst.s_addr);
-		cout << "Done." << endl;
+		p = front;
+
+		if (verbose)
+			cout << "Sending packet... " << endl;
+		if (verbose)
+			cout << "Queue size was " << was << endl;
+		if (verbose)
+			cout << "Queue size is now " << is << endl;
+
+		int send = cs3516_send(q->getSocket(), (char*) p, packetSize,
+				p->ip_header.ip_dst.s_addr);
+
+		if (verbose)
+			cout << "Bytes sent " << send << endl;
+
+		q->log->logPacket(p, globalLog.SENT_OKAY, p->ip_header.ip_dst);
+
+		if (verbose)
+			cout << "Done." << endl << endl;
+		//printPacket((packethdr*)p);
+
 		sleep(q->sendRate);
 	}
 	cout.flush();

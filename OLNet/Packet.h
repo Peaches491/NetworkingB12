@@ -16,7 +16,6 @@
 
 #define FILENAME_LENGTH (32)
 #define MAX_PAYLOAD (1000)
-//#define MAX_PAYLOAD (1000) - sizeof(dataheader)
 #define MAX_PACKET_SIZE (sizeof(packethdr) + MAX_PAYLOAD)
 
 ///////////////////////// Types
@@ -33,19 +32,11 @@ typedef struct _packethdr {
 //	unsigned int offset;
 //} dataheader;
 
-typedef struct _packet {
-
-	packethdr header;
-	//dataheader datahdr;
-	char* data;
-
-} packet;
-
 ///////////////////////// Function Definitions
 int createAndSendPacket(int sock, int* id, char* data, size_t size, char* srcIP, char* destIP,
 		char* routerIP, int ttl, std::string filename);
-void printPacket(packet* p);
-int sendPacket(int sock, packet* p, unsigned long nextIP);
+void printPacket(packethdr* p);
+int sendPacket(int sock, packethdr* p, char* data, unsigned long nextIP);
 
 ///////////////////////// Functions
 

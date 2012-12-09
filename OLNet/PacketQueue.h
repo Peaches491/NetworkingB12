@@ -11,25 +11,25 @@
 #include <queue>
 #include <pthread.h>
 #include <iostream>
-#include <mutex>
 
+#include "PacketLogger.h"
 #include "Packet.h"
 
 namespace std {
 
 class PacketQueue {
 public:
-	int queueSize;
+	unsigned int queueSize;
 	int sendRate;
-	PacketQueue(int sock, unsigned int size, int dest, int source);
+	PacketQueue(int sock, unsigned int size, int dest, int source, PacketLogger* logPtr);
 	virtual ~PacketQueue();
 	pthread_t* runQueue();
-
+	void enqueue(packethdr* p);
 
 	pthread_t* getThread() {
 		return this->thread;
 	}
-	queue<packet*>* getQueue() {
+	queue<packethdr*>* getQueue() {
 		return &(this->q);
 	}
 	int getSocket() {
@@ -41,12 +41,14 @@ public:
 	bool isRunning(){
 		return this->running;
 	}
+	PacketLogger* log;
 private:
 	pthread_mutex_t queueLock;
 	bool running;
 	pthread_t* thread;
-	queue<packet*> q;
+	queue<packethdr*> q;
 	int sock;
+
 
 };
 

@@ -21,6 +21,7 @@ using namespace std;
 
 int id = 0;
 FILE* rFile;
+int hostSock = -1;
 
 static void terminate(int arg) {
 	cout << endl << "Terminating host... " << endl;
@@ -29,6 +30,11 @@ static void terminate(int arg) {
 	if (rFile != NULL)
 		fclose(rFile);
 	cout << "Done." << endl;
+
+	cout << "Closing socket... ";
+	close(hostSock);
+	cout << "Done." << endl;
+
 	exit(1);
 }
 
@@ -43,7 +49,7 @@ int runHost(in_addr* ip, char* file, char* destIP, char* routerIP, int ttl) {
 	signal(SIGABRT, terminate);
 	signal(SIGTERM, terminate);
 
-	int sock = create_cs3516_socket();
+	hostSock = create_cs3516_socket();
 	//cout << sock << endl;
 
 	if (strcmp(file, "") != 0) {
@@ -59,16 +65,19 @@ int runHost(in_addr* ip, char* file, char* destIP, char* routerIP, int ttl) {
 		else
 			filename = fileString;
 
-		char * dataBuf = new char[MAX_PAYLOAD];
+		char* readBuf = (char*)malloc(MAX_PAYLOAD);
+		char* dataBuf = (char*)malloc(MAX_PAYLOAD);
 
 		int size = getFileSize(fd);
 		int sent = 0;
 
-		createAndSendPacket(sock, &id, (char*) &size, sizeof(uint32_t),
+		createAndSendPacket(hostSock, &id, (char*) &size, sizeof(uint32_t),
 				inet_ntoa(*ip), destIP, routerIP, ttl, filename);
 		while (sent < size) {
-			int bytesIn = fread((void*) dataBuf, 1, MAX_PAYLOAD, fd);
-			sent += createAndSendPacket(sock, &id, dataBuf, bytesIn,
+			int bytesIn = fread((void*) readBuf, 1, MAX_PAYLOAD, fd);
+			dataBuf = (char*)realloc(dataBuf, bytesIn);
+			memcpy(dataBuf, readBuf, bytesIn);
+			sent += createAndSendPacket(hostSock, &id, dataBuf, bytesIn,
 					inet_ntoa(*ip), destIP, routerIP, ttl, filename);
 			usleep(100);
 		}
@@ -84,43 +93,35 @@ int runHost(in_addr* ip, char* file, char* destIP, char* routerIP, int ttl) {
 	}
 	cout << "Done." << endl;
 
-	char* buf = new char[MAX_PACKET_SIZE];
-	int recv = cs3516_recv(sock, buf, MAX_PACKET_SIZE);
+	char* buf = (char*)malloc(MAX_PACKET_SIZE);
+	int recv = cs3516_recv(hostSock, buf, MAX_PACKET_SIZE);
 	int packetCount = 0;
 	while (1) {
 
-		bzero(buf, MAX_PACKET_SIZE);
-		int recv = cs3516_recv(sock, buf, MAX_PACKET_SIZE);
+		buf = (char*)realloc(buf, MAX_PACKET_SIZE);
+		memset(buf, 0, MAX_PACKET_SIZE);
+
+		int recv = cs3516_recv(hostSock, buf, MAX_PACKET_SIZE);
 		packetCount++;
 
 		cout << "Recv: " << recv << " bytes" << endl;
 
-		packet* p = ((packet*) buf);
-		char* data = (char*) (p + sizeof(packethdr));
-		//char* data = (char*) (p + sizeof(packethdr) + sizeof(dataheader));
+		buf = (char*)realloc(buf, recv);
 
-		/*if (outputToFile) {
-		 errno = 0;
-		 FILE* file = fopen(
-		 (string("/home/cs3516/TEST") + p->datahdr.filename).c_str(),
-		 "rw");
+		packethdr* p = ((packethdr*) buf);
+		char* data = (char*) (buf + sizeof(packethdr));
 
-		 if (file == NULL) {
-		 perror(strerror(errno));
-		 exit(EXIT_FAILURE);
-		 }
-		 }*/
 
 		//printPacket(p);
-
 		cout << "Recieved " << packetCount << " packets." << endl;
+
+		printPacket(p);
 
 		usleep(50);
 
-		for(int i = 0; i < p->header.udp_header.len; i++){
+		for (int i = 0; i < p->udp_header.len; i++) {
 			fputc(data[i], rFile);
 		}
-
 
 		//char* data = buf + sizeof(packethdr);
 		//cout << data << endl;
