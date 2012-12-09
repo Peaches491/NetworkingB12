@@ -5,6 +5,7 @@
 //============================================================================
 
 #include <iostream>
+#include <fstream>
 #include <string.h>
 #include <stdio.h>
 #include <arpa/inet.h>
@@ -19,6 +20,7 @@
 using namespace std;
 
 void getIP(in_addr* result);
+int maskGen(int nbits);
 
 int main(int argc, char* argv[]) {
 
@@ -71,20 +73,166 @@ int main(int argc, char* argv[]) {
 			}
 		}
 	}
+	int queueLength = 10;
+	int TTL = 10;
+	if(1){
+		ifstream f;
+		f.open("config.txt", ios::in|ios::binary);
+		cout<<"opening 'config.txt'...."<<endl;
 
-	//TODO map machine numbers to various datas
+		//seek to the end of the file
+		f.seekg(0, ios::end);
+
+		//file is open and not empty
+		if(f.good() && f.tellg()>0){
+			//hop back to the beginning
+			f.seekg(0, ios::beg);
+
+			cout<<"... opened. Parsing for config information..."<<endl;
+
+			while(!f.eof()){
+				char line[100];
+				int tokenCount = 0;
+				char* token;
+				int parsedToken[6];
+				in_addr tmpaddr;
+				uint8_t type = 0;
+				//cout<<"pulling a line."<<endl;
+				f.getline(line, 99);			//pull a line from the file
+
+				//empty line (could be whitespace, could be EOF)
+				// if it's EOF the do/while condition catches it
+				if(!f.gcount()) continue;
+
+				cout<< "got tokens:  ";
+
+				token = strtok(line, " ");
+
+				do{
+					//pull tokens out of it
+					cout<< token<< ",  ";
+
+					if(tokenCount == 0){
+
+						type = atoi(token);
+
+						//unrecognized type
+						if(type > 4)
+							break;
+					}
+					else{
+						switch(type){
+						case 0:		//global config
+							if(tokenCount == 1){
+								queueLength = atoi(token);
+							}
+							else if(tokenCount == 2){
+								TTL = atoi(token);
+							}
+							break;
+						case 1:		//router ID
+							if(tokenCount == 1){
+								parsedToken[0] = atoi(token);
+							}
+							else if(tokenCount==2){
+								inet_aton(token, &tmpaddr);
+								parsedToken[1] = tmpaddr.s_addr;
+							}
+							break;
+						case 2:		//host ID
+							if(tokenCount == 1){
+								parsedToken[0] = atoi(token);
+							}
+							else if(tokenCount>=2){
+								inet_aton(token, &tmpaddr);
+								parsedToken[tokenCount-1] = tmpaddr.s_addr;
+							}
+							break;
+						case 3:		//router-to-router
+							switch(tokenCount){
+							case 1:
+							case 2:
+							case 3:
+								parsedToken[tokenCount-1] = atoi(token);
+								break;
+							case 4:
+								delayList[parsedToken[0]][parsedToken[2]] = parsedToken[1];
+								delayList[parsedToken[2]][parsedToken[0]] = atoi(token);
+								break;
+							}
+							break;
+						case 4:		//router-to-host
+
+							string s;
+							int idx;
+
+							switch(tokenCount){
+							case 1:
+							case 2:
+								parsedToken[tokenCount-1] = atoi(token);
+								break;
+							case 3:
+								//split the IP address and subnet mask
+								//store them as integers
+								s = token;
+								idx  = s.find('/');
+
+								inet_aton(s.substr(0, idx).c_str(), &tmpaddr);
+								parsedToken[2] = tmpaddr.s_addr;
+								parsedToken[3] = maskGen(atoi(s.substr(idx+1, s.length()).c_str()));
+
+								//cout<<parsedToken[2]<<" / "<<parsedToken[3]<<endl;
+
+								break;
+							case 4:
+								parsedToken[4] = atoi(token);
+								break;
+							case 5:
+								parsedToken[5] = atoi(token);
+								delayList[parsedToken[0]][parsedToken[4]] = parsedToken[1];
+								delayList[parsedToken[4]][parsedToken[0]] = parsedToken[5];
+								break;
+							}
+							break;
+						}
+
+					}
+
+					//catch back up to where we were
+					//if(type==4 && tokenCount == 3)
+					//	token = strtok(line, " ");
+					//else
+					token = strtok(NULL, " ");
+					tokenCount++;
+				}while(token!=NULL);
+				cout<<endl;
+			}
+		}
+		f.close();
+	}
+	//TODO map machine numbers to various data
 	// example1: 3 1 100 2 110
-	delayList[1][2] = 100;
-	delayList[2][1] = 110;
+	//delayList[1][2] = 100;
+	//delayList[2][1] = 110;
 	// example1: 4 1 1000 1.2.3.0/24 4 2000
-	delayList[1][4] = 1000;
-	delayList[4][1] = 2000;
+	//delayList[1][4] = 1000;
+	//delayList[4][1] = 2000;
 
 	if (router == true) {
-		return runRouter(&ip, 10); // TODO 10 is default Queue Length
+		return runRouter(&ip, queueLength); // TODO 10 is default Queue Length
 	} else {
-		return runHost(&ip, file, destIP, routerIP, 3); // TODO 3 is default TTL
+		return runHost(&ip, file, destIP, routerIP, TTL); // TODO 3 is default TTL
 	}
+}
+
+int maskGen(int nbits){
+	int mask;
+	for(int i=0; i<32; i++){
+		if(i<nbits)
+			mask++;
+		mask<<=1;
+	}
+	return mask;
 }
 
 void getIP(in_addr* result) {
