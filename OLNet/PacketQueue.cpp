@@ -73,7 +73,7 @@ void* print_message(void* ptr) {
 
 		pthread_mutex_lock(q->getQueueLock());
 		packethdr* front = q->getQueue()->front();
-		//((packethdr*) front);
+
 		int packetSize = (front->udp_header.len + sizeof(packethdr));
 
 		memcpy(buf, (q->getQueue()->front()), MAX_PACKET_SIZE);

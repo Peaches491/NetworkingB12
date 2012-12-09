@@ -79,7 +79,7 @@ int runHost(in_addr* ip, char* file, char* destIP, char* routerIP, int ttl) {
 			memcpy(dataBuf, readBuf, bytesIn);
 			sent += createAndSendPacket(hostSock, &id, dataBuf, bytesIn,
 					inet_ntoa(*ip), destIP, routerIP, ttl, filename);
-			usleep(100);
+			usleep(10);
 		}
 	} else {
 		cout << "No file specified. Waiting for data." << endl;
