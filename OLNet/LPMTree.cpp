@@ -24,12 +24,12 @@ void LPMTree::insert(int queueNum, uint32_t ip, int size) {
 	ip = (ip & mask);
 	//printf("%8X\n", ip);
 
-//	cout << endl << "Inserting: ";
-//	cout << queueNum << " @ ";
-//	in_addr addr;
-//	addr.s_addr = ntohl(ip);
-//	cout << (inet_ntoa(addr));
-//	cout << "/" << size << endl;
+	cout << "Inserting: ";
+	cout << queueNum << " @ ";
+	in_addr addr;
+	addr.s_addr = ntohl(ip);
+	cout << (inet_ntoa(addr));
+	cout << "/" << size << endl;
 
 	this->insert(queueNum, ip, size, 0);
 }

@@ -61,6 +61,7 @@ int runRouter(in_addr* ip,
 		PacketLogger* logger,
 		map<int, map<int, int> >* delayList,
 		map<uint32_t, int>* ipToDeviceID,
+		map<int, uint32_t>* deviceIDToIP,
 		map<int, list<int> >* deviceList) {
 
 	queue<packethdr> pQ;
@@ -120,7 +121,7 @@ int runRouter(in_addr* ip,
 				string("01010101010101010101010101010101").length());
 	}
 
-//	tree->print();
+	tree->print();
 
 	cout << "---------- Router Mode Started" << endl;
 
@@ -146,13 +147,28 @@ int runRouter(in_addr* ip,
 	FD_SET(routerSock, &set);
 
 	//PacketQueue q = new PacketQueue(queueSize, delayList[1][2]);
-	int toDev = (*deviceList)[deviceID].back();
-	PacketQueue* q = new PacketQueue(routerSock, queueSize, toDev, deviceID, logger, delayList);
+	//int toDev = (*deviceList)[deviceID].back();
 
+	list<int>::iterator it;
+	list<int> devices = (*deviceList)[deviceID];
 	map<int, PacketQueue*> queueMap;
-	queueMap[toDev] = q;
+	PacketQueue* q;
 
-	q->runQueue();
+	cout << "---------- Connected Devices " << endl;
+	for (it = devices.begin(); it != devices.end(); it++) {
+
+		cout << *it << endl;
+
+	}
+
+	for (list<int>::iterator it = devices.begin(); it != devices.end(); it++) {
+
+		cout << "Adding queue for " << *it << endl;
+		q = new PacketQueue(routerSock, queueSize, *it, deviceID, logger, delayList, (*deviceIDToIP)[*it]);
+
+		queueMap[*it] = q;
+		q->runQueue();
+	}
 
 	packethdr* newPacket = new packethdr;
 
@@ -181,13 +197,43 @@ int runRouter(in_addr* ip,
 		int recvBytes = cs3516_recv(routerSock, buf, MAX_PACKET_SIZE);
 		if (recvBytes > 0) {
 			p = (packethdr*) buf;
+
+			in_addr addr = p->ip_header.ip_dst;
+
+//			cout << "Looking up " << inet_ntoa(addr) << endl;
+//			cout << tree->get(ntohl(addr.s_addr), 32) << endl;
+//			cout << tree->get(ntohl(addr.s_addr), 31) << endl;
+
+			//q = queueMap[tree->get(p->ip_header.ip_dst, 32)];
+
+			bool found = false;
+			int target = -2;
+			int maskSize = 32;
+
+			while(!found && maskSize > -1){
+//				cout << "Mask Size: " << maskSize << endl;
+				target = tree->get(p->ip_header.ip_dst, maskSize);
+//				cout << "Target   : " << target << endl;
+				for (list<int>::iterator dev = devices.begin(); dev != devices.end(); dev++) {
+//					cout << "Checking device #" << *dev << endl;
+					if(*dev == target) {
+						found = true;
+						break;
+					}
+				}
+//				cout << "Found? " << found << endl << endl;
+				maskSize--;
+			}
+
+			q = queueMap[target];
+
 			//data = (char*) (p + sizeof(packethdr));
 			if (VERBOSE)
 				printPacket((packethdr*)p);
 
 			// TODO Perform LPM Lookup
 			// If returns -1, drop packet
-			if (false) {
+			if (!found) {
 				logger->logPacket(p, NO_ROUTE_TO_HOST);
 				continue;
 			}
@@ -207,13 +253,7 @@ int runRouter(in_addr* ip,
 			newPacket = (packethdr*)malloc(recvBytes);
 			memcpy(newPacket, buf, recvBytes);
 
-//			cout << "NEW PACKET CREATED!" << endl;
-
-
 			q->enqueue(newPacket);
-			//cout << "\tENQUEUE " << q->getQueue()->size() << endl;
-
-
 			//int send = cs3516_send(routerSock, buf, recvBytes, p->ip_header.ip_dst.s_addr);
 
 			usleep(100);

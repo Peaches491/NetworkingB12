@@ -42,9 +42,9 @@ void PacketLogger::logPacket(packethdr* p, LogType type, in_addr nextHop) {
 	char* next = (char*) malloc(16);
 	memcpy(next, inet_ntoa(nextHop), 16);
 	char* src = (char*) malloc(16);
-	memcpy(src, inet_ntoa(nextHop), 16);
+	memcpy(src, inet_ntoa(p->ip_header.ip_src), 16);
 	char* dst = (char*) malloc(16);
-	memcpy(dst, inet_ntoa(nextHop), 16);
+	memcpy(dst, inet_ntoa(p->ip_header.ip_dst), 16);
 	bzero(str, 100);
 
 	if (type == SENT_OKAY) {

@@ -36,61 +36,17 @@ PacketLogger* logger = new PacketLogger;
 int deviceId = -1;
 
 void getIP(in_addr* result);
-unsigned int maskGen(int nbits);
+//unsigned int maskGen(int nbits);
 
 int main(int argc, char* argv[]) {
 
-	char* file = "";
-	char* destIP = "";
-	char* routerIP = "";
-
-	LPMTree* tree = new LPMTree();
-
-	// Check the value of argc.
-	//    If not enough parameters have been passed,
-	//    inform user and exit.
-	if (argc < 2) {
-		std::cout << "Usage is -r (for router mode) -h (for host mode)" << endl;
-		return -1;
-	}
-
 	bool router = false;
+	LPMTree* tree = new LPMTree();
 
 	in_addr* thisIP = (in_addr*)malloc(sizeof(in_addr));
 	getIP(thisIP);
 	cout << "Detected IP Address is: " << inet_ntoa(*thisIP) << endl;
 
-	// Host Tag
-	if (strcmp(argv[1], "-h") == 0) {
-		router = false;
-		// Router Tag
-	} else if (strcmp(argv[1], "-r") == 0) {
-		router = true;
-	} else {
-		cout
-				<< "ERROR: Argument 1 must specify either -r (for router mode) -h (for host mode)"
-				<< endl;
-		cout << endl;
-		return -1;
-	}
-
-	for (int i = 1; i < argc; i++) {
-		if ((i + 1) != argc) {
-
-			//File
-			if (strcmp(argv[i], "-f") == 0) {
-				file = argv[i + 1];
-
-				//Destination IP
-			} else if (strcmp(argv[i], "-d") == 0) {
-				destIP = argv[i + 1];
-
-				//Max Users
-			} else if (strcmp(argv[i], "-r") == 0) {
-				routerIP = argv[i + 1];
-			}
-		}
-	}
 	int queueLength = 15;
 	int TTL = 15;
 	if (1) {
@@ -154,8 +110,11 @@ int main(int argc, char* argv[]) {
 							} else if (tokenCount == 2) {
 								inet_aton(token, &tmpaddr);
 								parsedToken[1] = tmpaddr.s_addr;
-								if (thisIP->s_addr == tmpaddr.s_addr)
+								if (thisIP->s_addr == tmpaddr.s_addr){
+									if(type==1) router = true;
+									else router = false;
 									deviceId = parsedToken[0];
+								}
 								idToRealIP[parsedToken[0]] = tmpaddr.s_addr;
 							}
 							else if (tokenCount == 3) {
@@ -163,6 +122,7 @@ int main(int argc, char* argv[]) {
 								parsedToken[2] = tmpaddr.s_addr;
 								idToOverlayIP[parsedToken[0]] = tmpaddr.s_addr;
 								overlayIPToDeviceID[tmpaddr.s_addr] = parsedToken[0];
+								tree->insert(parsedToken[0], ntohl(tmpaddr.s_addr), 32);
 							}
 
 							break;
@@ -226,7 +186,7 @@ int main(int argc, char* argv[]) {
 
 								uint32_t lpmIP = parsedToken[2];
 								uint32_t length = parsedToken[3];
-								int queueNum = devB;
+								int queueNum = devA;
 								tree->insert(queueNum, ntohl(lpmIP), length);
 
 //								cout << "Adding " << devB << " to " << devA << endl;
@@ -237,6 +197,8 @@ int main(int argc, char* argv[]) {
 //								cout << deviceList[devB].back() << endl;
 
 								hostToRouter[devB] = devA;
+
+								idToOverlayIP[parsedToken[0]] = lpmIP ;
 
 								break;
 							}
@@ -253,22 +215,20 @@ int main(int argc, char* argv[]) {
 		f.close();
 	}
 
+	cout << "---------------- Device List " << endl;
+	map<int, uint32_t>::iterator it;
+	for(it = idToOverlayIP.begin(); it != idToOverlayIP.end(); it++){
+		in_addr addr;
+		addr.s_addr = it->second;
+		cout << it->first << " " << inet_ntoa(addr) << endl;
+	}
+
 	if (router == true) {
-		return runRouter(thisIP, deviceId, queueLength, tree, logger, &delayList, &overlayIPToDeviceID, &deviceList);
+		return runRouter(thisIP, deviceId, queueLength, tree, logger, &delayList, &overlayIPToDeviceID, &idToRealIP, &deviceList);
 	} else {
-		return runHost(thisIP, deviceId, TTL, &idToRealIP, &hostToRouter, &delayList);
+		return runHost(thisIP, deviceId, TTL, &idToRealIP, &idToOverlayIP, &hostToRouter, &delayList);
 	}
 }
-
-//unsigned int maskGen(int nbits) {
-//	int mask;
-//	for (int i = 0; i < 32; i++) {
-//		if (i < nbits)
-//			mask++;
-//		if(i != 31)mask <<= 1;
-//	}
-//	return mask;
-//}
 
 void getIP(in_addr* result) {
 	struct ifaddrs * ifAddrStruct = NULL;

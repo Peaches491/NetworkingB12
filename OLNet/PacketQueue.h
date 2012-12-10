@@ -21,7 +21,7 @@ class PacketQueue {
 public:
 	unsigned int queueSize;
 	int sendRate;
-	PacketQueue(int sock, unsigned int size, int dest, int source, PacketLogger* logPtr, map<int, map<int, int> >* delayList);
+	PacketQueue(int sock, unsigned int size, int dest, int source, PacketLogger* logPtr, map<int, map<int, int> >* delayList, uint32_t nextHop);
 	virtual ~PacketQueue();
 	pthread_t* runQueue();
 	void enqueue(packethdr* p);
@@ -42,6 +42,7 @@ public:
 		return this->running;
 	}
 	PacketLogger* log;
+	uint32_t nextHop;
 private:
 	pthread_mutex_t queueLock;
 	bool running;
