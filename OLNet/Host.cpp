@@ -105,7 +105,9 @@ int runHost(in_addr* _ip, int deviceID, int ttl, map<int, uint32_t>* idToRealIP,
 		cout << "Filesize is: " << size << endl;
 		int sent = 0;
 
-
+		////////////////////////////////
+		// DO NOT TOUCH THESE MEMCPYs //
+		////////////////////////////////
 		char* temp3 = (char*)malloc(16);
 		memcpy(temp3, routerIP, 16);
 		temp3[15] ='\0';
@@ -114,10 +116,11 @@ int runHost(in_addr* _ip, int deviceID, int ttl, map<int, uint32_t>* idToRealIP,
 		memcpy(temp1, inet_ntoa(ip), 16);
 		temp1[15] = '\0';
 
-//		cout << temp3 << endl;
-
 		char* temp2 = (char*)malloc(16);
 		memcpy(temp2, destIP.c_str(), 16);
+		////////////////////////////////
+		// DO NOT TOUCH THESE MEMCPYs //
+		////////////////////////////////
 
 		createAndSendPacket(hostSock, &id, (char*) &size, sizeof(uint32_t),
 				temp1, temp2, temp3, ttl, sourcePort, destPort);
