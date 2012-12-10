@@ -1,4 +1,4 @@
-Authors:                        Daniel Miller and Kevin Janesch
+Authors:                        Daniel "Token Lord" Miller and Kevin "Is There Actually Anyone Here Named 'Kevin'?" Janesch
 Date:                           12/09/2012
 Project ID:                     Project 3
 CS Class:                       CS 3516
