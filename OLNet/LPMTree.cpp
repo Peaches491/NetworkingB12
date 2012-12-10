@@ -19,17 +19,17 @@ void printAddr(string str);
 void LPMTree::insert(int queueNum, uint32_t ip, int size) {
 
 	uint32_t mask = 0xFFFFFFFF;
-	mask = (mask << 32-size);
-	printf("%X\n", mask);
+	mask = (mask << (32-size));
+	//printf("%X\n", mask);
 	ip = (ip & mask);
-	printf("%8X\n", ip);
+	//printf("%8X\n", ip);
 
-	cout << "Inserting: ";
+	cout << endl << "Inserting: ";
 	cout << queueNum << " @ ";
 	in_addr addr;
 	addr.s_addr = ntohl(ip);
 	cout << (inet_ntoa(addr));
-	cout << "\\" << size << endl << endl;
+	cout << "/" << size << endl;
 
 	this->insert(queueNum, ip, size, 0);
 }
@@ -48,13 +48,13 @@ void LPMTree::insert(int queueNum, in_addr addr, int size) {
 void LPMTree::insert(int queueNum, uint32_t ip, int size, int currDepth) {
 
 	if (size <= currDepth) {
-		cout << "Storing number " << queueNum << " and returning." << endl;
+		//cout << "Storing number " << queueNum << " and returning." << endl;
 		this->queue = queueNum;
 		return;
 	}
 	bool nextDigit = 0x80000000 & (ip << currDepth);
 	//bool nextDigit = 0b1000 & (ip << currDepth);
-	cout << "Next Digit is a " << (int) nextDigit << endl;
+	//cout << "Next Digit is a " << (int) nextDigit << endl;
 
 	LPMTree* node;
 	if (nextDigit) { // if the next digit is a 'one'
@@ -62,16 +62,16 @@ void LPMTree::insert(int queueNum, uint32_t ip, int size, int currDepth) {
 			this->one = new LPMTree();
 		}
 		node = this->one;
-		cout << "Moving to child one" << endl;
+		//cout << "Moving to child one" << endl;
 	} else {
 		if (this->zero == NULL) {
 			this->zero = new LPMTree();
 		}
 		node = this->zero;
-		cout << "Moving to child zero" << endl;
+		//cout << "Moving to child zero" << endl;
 	}
 
-	cout << "Recursing" << endl << endl;
+	//cout << "Recursing" << endl << endl;
 	node->insert(queueNum, ip, size, currDepth + 1);
 }
 
@@ -168,7 +168,7 @@ void LPMTree::print(string str) {
 void printAddr(string str) {
 	if (false) {
 		uint32_t number = 0;
-		for (int i = 0; i < str.length(); i++) {
+		for (unsigned int i = 0; i < str.length(); i++) {
 			uint32_t thisNum;
 			if (str[i] == '1'){
 				thisNum = 1;

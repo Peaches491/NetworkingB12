@@ -4,29 +4,47 @@
 // Description :
 //============================================================================
 
-#include <iostream>
-#include <fstream>
-#include <string.h>
-#include <stdio.h>
-#include <arpa/inet.h>
-#include <ifaddrs.h>
-#include <netinet/in.h>
-#include "Router.h"
-#include "Delays.h"
+#include "cs3516sock.h"
+#include "Globals.h"
 #include "Host.h"
 #include "Packet.h"
-#include "cs3516sock.h"
+#include "Router.h"
+#include <arpa/inet.h>
+#include <fstream>
+#include <ifaddrs.h>
+#include <iostream>
+#include <netinet/in.h>
+#include <stdio.h>
+#include <string.h>
+#include <map>
+#include <list>
 
 using namespace std;
 
+
+typedef map<int, int> int_int_map;
+map<int, int_int_map> delayList;
+map<int, uint32_t> idToRealIP;
+map<int, uint32_t> idToOverlayIP;
+map<uint32_t, int> overlayIPToDeviceID;
+map<int, list<int> > deviceList;
+map<int, int> hostToRouter;
+
+LPMTree* tree = new LPMTree();
+PacketLogger* logger = new PacketLogger;
+
+int deviceId = -1;
+
 void getIP(in_addr* result);
-int maskGen(int nbits);
+unsigned int maskGen(int nbits);
 
 int main(int argc, char* argv[]) {
 
 	char* file = "";
 	char* destIP = "";
 	char* routerIP = "";
+
+	LPMTree* tree = new LPMTree();
 
 	// Check the value of argc.
 	//    If not enough parameters have been passed,
@@ -38,9 +56,9 @@ int main(int argc, char* argv[]) {
 
 	bool router = false;
 
-	in_addr ip;
-	getIP(&ip);
-	cout << "Detected IP Address is: " << inet_ntoa(ip) << endl;
+	in_addr thisIP;
+	getIP(&thisIP);
+	cout << "Detected IP Address is: " << inet_ntoa(thisIP) << endl;
 
 	// Host Tag
 	if (strcmp(argv[1], "-h") == 0) {
@@ -73,24 +91,24 @@ int main(int argc, char* argv[]) {
 			}
 		}
 	}
-	int queueLength = 10;
-	int TTL = 10;
-	if(1){
+	int queueLength = 15;
+	int TTL = 15;
+	if (1) {
 		ifstream f;
-		f.open("config.txt", ios::in|ios::binary);
-		cout<<"opening 'config.txt'...."<<endl;
+		f.open("config.txt", ios::in | ios::binary);
+		cout << "opening 'config.txt'...." << endl;
 
 		//seek to the end of the file
 		f.seekg(0, ios::end);
 
 		//file is open and not empty
-		if(f.good() && f.tellg()>0){
+		if (f.good() && f.tellg() > 0) {
 			//hop back to the beginning
 			f.seekg(0, ios::beg);
 
-			cout<<"... opened. Parsing for config information..."<<endl;
+			cout << "... opened. Parsing for config information..." << endl;
 
-			while(!f.eof()){
+			while (!f.eof()) {
 				char line[100];
 				int tokenCount = 0;
 				char* token;
@@ -102,62 +120,69 @@ int main(int argc, char* argv[]) {
 
 				//empty line (could be whitespace, could be EOF)
 				// if it's EOF the do/while condition catches it
-				if(!f.gcount()) continue;
+				if (!f.gcount())
+					continue;
 
-				cout<< "got tokens:  ";
+				cout << "got tokens:  ";
 
 				token = strtok(line, " ");
 
-				do{
+				do {
 					//pull tokens out of it
-					cout<< token<< ",  ";
+					cout << token << ",  ";
 
-					if(tokenCount == 0){
+					if (tokenCount == 0) {
 
 						type = atoi(token);
 
 						//unrecognized type
-						if(type > 4)
+						if (type > 4)
 							break;
-					}
-					else{
-						switch(type){
+					} else {
+						switch (type) {
 						case 0:		//global config
-							if(tokenCount == 1){
+							if (tokenCount == 1) {
 								queueLength = atoi(token);
-							}
-							else if(tokenCount == 2){
+							} else if (tokenCount == 2) {
 								TTL = atoi(token);
 							}
 							break;
 						case 1:		//router ID
-							if(tokenCount == 1){
+						case 2:		//host ID
+							if (tokenCount == 1) {
 								parsedToken[0] = atoi(token);
-							}
-							else if(tokenCount==2){
+							} else if (tokenCount == 2) {
 								inet_aton(token, &tmpaddr);
 								parsedToken[1] = tmpaddr.s_addr;
+								if (thisIP.s_addr == tmpaddr.s_addr)
+									deviceId = parsedToken[0];
+								idToRealIP[parsedToken[0]] = tmpaddr.s_addr;
 							}
-							break;
-						case 2:		//host ID
-							if(tokenCount == 1){
-								parsedToken[0] = atoi(token);
-							}
-							else if(tokenCount>=2){
+							else if (tokenCount == 3) {
 								inet_aton(token, &tmpaddr);
-								parsedToken[tokenCount-1] = tmpaddr.s_addr;
+								parsedToken[2] = tmpaddr.s_addr;
+								idToOverlayIP[parsedToken[0]] = tmpaddr.s_addr;
+								overlayIPToDeviceID[tmpaddr.s_addr] = parsedToken[0];
 							}
+
 							break;
 						case 3:		//router-to-router
-							switch(tokenCount){
+							switch (tokenCount) {
 							case 1:
 							case 2:
 							case 3:
-								parsedToken[tokenCount-1] = atoi(token);
+								parsedToken[tokenCount - 1] = atoi(token);
 								break;
 							case 4:
-								delayList[parsedToken[0]][parsedToken[2]] = parsedToken[1];
-								delayList[parsedToken[2]][parsedToken[0]] = atoi(token);
+								int devA = parsedToken[0];
+								int devB = parsedToken[2];
+								delayList[devA][devB] =
+										parsedToken[1];
+								delayList[devB][devA] =
+										atoi(token);
+
+								deviceList[devA].push_back(devB);
+								deviceList[devB].push_back(devA);
 								break;
 							}
 							break;
@@ -166,20 +191,20 @@ int main(int argc, char* argv[]) {
 							string s;
 							int idx;
 
-							switch(tokenCount){
+							switch (tokenCount) {
 							case 1:
 							case 2:
-								parsedToken[tokenCount-1] = atoi(token);
+								parsedToken[tokenCount - 1] = atoi(token);
 								break;
 							case 3:
 								//split the IP address and subnet mask
 								//store them as integers
 								s = token;
-								idx  = s.find('/');
+								idx = s.find('/');
 
 								inet_aton(s.substr(0, idx).c_str(), &tmpaddr);
 								parsedToken[2] = tmpaddr.s_addr;
-								parsedToken[3] = maskGen(atoi(s.substr(idx+1, s.length()).c_str()));
+								parsedToken[3] = atoi( s.substr(idx + 1, s.length()).c_str() );
 
 								//cout<<parsedToken[2]<<" / "<<parsedToken[3]<<endl;
 
@@ -189,51 +214,57 @@ int main(int argc, char* argv[]) {
 								break;
 							case 5:
 								parsedToken[5] = atoi(token);
-								delayList[parsedToken[0]][parsedToken[4]] = parsedToken[1];
-								delayList[parsedToken[4]][parsedToken[0]] = parsedToken[5];
+
+								int devA = parsedToken[0];
+								int devB = parsedToken[4];
+
+								// Insert the data
+								delayList[devA][devB] =
+										parsedToken[1];
+								delayList[devB][devA] =
+										parsedToken[5];
+
+								uint32_t lpmIP = parsedToken[2];
+								uint32_t length = parsedToken[3];
+								int queueNum = devB;
+								tree->insert(queueNum, ntohl(lpmIP), length);
+
+								deviceList[devA].push_back(devB);
+								deviceList[devB].push_back(devA);
+
+								hostToRouter[devB] = devA;
+
 								break;
 							}
 							break;
 						}
 
 					}
-
-					//catch back up to where we were
-					//if(type==4 && tokenCount == 3)
-					//	token = strtok(line, " ");
-					//else
 					token = strtok(NULL, " ");
 					tokenCount++;
-				}while(token!=NULL);
-				cout<<endl;
+				} while (token != NULL);
+				cout << endl;
 			}
 		}
 		f.close();
 	}
-	//TODO map machine numbers to various data
-	// example1: 3 1 100 2 110
-	//delayList[1][2] = 100;
-	//delayList[2][1] = 110;
-	// example1: 4 1 1000 1.2.3.0/24 4 2000
-	//delayList[1][4] = 1000;
-	//delayList[4][1] = 2000;
 
 	if (router == true) {
-		return runRouter(&ip, queueLength); // TODO 10 is default Queue Length
+		return runRouter(&thisIP, deviceId, queueLength, tree, logger, &delayList, &overlayIPToDeviceID, &deviceList);
 	} else {
-		return runHost(&ip, file, destIP, routerIP, TTL); // TODO 3 is default TTL
+		return runHost(&thisIP, deviceId, TTL, &idToRealIP, &hostToRouter);
 	}
 }
 
-int maskGen(int nbits){
-	int mask;
-	for(int i=0; i<32; i++){
-		if(i<nbits)
-			mask++;
-		mask<<=1;
-	}
-	return mask;
-}
+//unsigned int maskGen(int nbits) {
+//	int mask;
+//	for (int i = 0; i < 32; i++) {
+//		if (i < nbits)
+//			mask++;
+//		if(i != 31)mask <<= 1;
+//	}
+//	return mask;
+//}
 
 void getIP(in_addr* result) {
 	struct ifaddrs * ifAddrStruct = NULL;

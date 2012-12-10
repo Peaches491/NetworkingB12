@@ -14,24 +14,25 @@
 #include <sys/time.h>
 #include <arpa/inet.h>
 #include <map>
+#include <list>
 #include <queue>
 #include <sstream>
 #include <fstream>
 #include <iostream>
 
+#include "PacketLogger.h"
 #include "Router.h"
 #include "Packet.h"
 #include "LPMTree.h"
 #include "cs3516sock.h"
 #include "PacketQueue.h"
-#include "PacketLogger.h"
 
 using namespace std;
 
 #define VERBOSE (0)
 
-LPMTree* tree = new LPMTree();
-PacketLogger* log = new PacketLogger;
+LPMTree* _lpm;
+PacketLogger* _logger;
 
 int routerSock = -1;
 
@@ -39,11 +40,11 @@ static void terminate(int param) {
 	cout << "\nTerminating router..." << endl;
 
 	cout << "Deleting LPM Tree... ";
-	delete (tree);
+	delete (_lpm);
 	cout << "Done." << endl;
 
 	cout << "Closing log file... ";
-	log->closeLogger();
+	_logger->closeLogger();
 	cout << "Done." << endl;
 
 	cout << "Closing socket... ";
@@ -53,13 +54,24 @@ static void terminate(int param) {
 	exit(1);
 }
 
-int runRouter(in_addr* ip, int queueSize) {
+int runRouter(in_addr* ip,
+		int deviceID,
+		int queueSize,
+		LPMTree* lpmIn,
+		PacketLogger* logger,
+		map<int, map<int, int> >* delayList,
+		map<uint32_t, int>* ipToDeviceID,
+		map<int, list<int> >* deviceList) {
 
 	queue<packethdr> pQ;
 
 	signal(SIGINT, terminate);
 	signal(SIGABRT, terminate);
 	signal(SIGTERM, terminate);
+
+	_logger = logger;
+	_lpm = lpmIn;
+	LPMTree* tree = lpmIn;
 
 	in_addr addr;
 	bool testing = false;
@@ -113,7 +125,7 @@ int runRouter(in_addr* ip, int queueSize) {
 	cout << endl << "---------- Router Mode Started" << endl;
 
 	cout << "Opening log file... ";
-	log->initLogger();
+	logger->initLogger();
 	cout << "Done." << endl;
 
 	cout << "Opening socket... ";
@@ -126,7 +138,7 @@ int runRouter(in_addr* ip, int queueSize) {
 
 	char* buf = new char[MAX_PACKET_SIZE];
 	packethdr* p;
-	char* data;
+	//char* data;
 
 	timeval t { 0 };
 	t.tv_usec = 10;
@@ -134,9 +146,11 @@ int runRouter(in_addr* ip, int queueSize) {
 	FD_SET(routerSock, &set);
 
 	//PacketQueue q = new PacketQueue(queueSize, delayList[1][2]);
-	int toDev = 0;
-	int fromDev = 0;
-	PacketQueue* q = new PacketQueue(routerSock, queueSize, toDev, fromDev, log);
+	int toDev = (*deviceList)[0].front();
+	PacketQueue* q = new PacketQueue(routerSock, queueSize, toDev, deviceID, logger, delayList);
+
+	map<int, PacketQueue*> queueMap;
+	queueMap[toDev] = q;
 
 	cout << "runQueue()" << endl;
 	q->runQueue();
@@ -170,26 +184,26 @@ int runRouter(in_addr* ip, int queueSize) {
 		int recvBytes = cs3516_recv(routerSock, buf, MAX_PACKET_SIZE);
 		if (recvBytes > 0) {
 			p = (packethdr*) buf;
-			data = (char*) (p + sizeof(packethdr));
+			//data = (char*) (p + sizeof(packethdr));
 			if (VERBOSE)
 				printPacket((packethdr*)p);
 
 			// TODO Perform LPM Lookup
 			// If returns -1, drop packet
 			if (false) {
-				globalLog.logPacket(p, globalLog.NO_ROUTE_TO_HOST);
+				logger->logPacket(p, NO_ROUTE_TO_HOST);
 				continue;
 			}
 
 			// If this is the last hop for the packet, drop it
 			if (p->ip_header.ip_ttl == 1) {
-				log->logPacket(p, globalLog.TTL_EXPIRED);
+				logger->logPacket(p, TTL_EXPIRED);
 				continue;
 			}
 
 			// If there is no space for the packet, drop it
 			if (q->getQueue()->size() >= q->queueSize) {
-				log->logPacket(p, globalLog.MAX_SENDQ_EXCEEDED);
+				logger->logPacket(p, MAX_SENDQ_EXCEEDED);
 				continue;
 			}
 

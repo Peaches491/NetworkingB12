@@ -8,6 +8,7 @@
 #ifndef LPMTREE_H_
 #define LPMTREE_H_
 
+#include <string>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>

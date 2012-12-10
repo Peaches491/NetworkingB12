@@ -8,7 +8,14 @@
 #ifndef HOST_H_
 #define HOST_H_
 
-int runHost(in_addr* ip, char* file, char* destIPl, char* routerIP, int ttl);
+#include <map>
+
+int runHost(in_addr* ip,
+		int deviceID,
+		int ttl,
+		std::map<int, uint32_t>* idToRealIP,
+		std::map<int, int>* hostToRouter);
+
 int getFileSize(FILE* fd);
 
 #endif /* HOST_H_ */

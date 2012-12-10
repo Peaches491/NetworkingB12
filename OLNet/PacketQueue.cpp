@@ -17,11 +17,11 @@ namespace std {
 void* print_message(void* queue);
 
 PacketQueue::PacketQueue(int socket, unsigned int size, int dest, int source,
-		PacketLogger* logPtr) {
+		PacketLogger* logPtr, map<int, map<int, int> >* delayList) {
 	sock = socket;
 	//TODO Remove once the delay list is populated
-	//sendRate = delayList[source][dest];
-	sendRate = 5;
+	sendRate = (*delayList)[source][dest];
+	//sendRate = 5;
 	queueSize = size;
 	running = false;
 	queueLock = PTHREAD_MUTEX_INITIALIZER;
@@ -98,13 +98,13 @@ void* print_message(void* ptr) {
 		if (verbose)
 			cout << "Bytes sent " << send << endl;
 
-		q->log->logPacket(p, globalLog.SENT_OKAY, p->ip_header.ip_dst);
+		q->log->logPacket(p, SENT_OKAY, p->ip_header.ip_dst);
 
 		if (verbose)
 			cout << "Done." << endl << endl;
 		//printPacket((packethdr*)p);
 
-		sleep(q->sendRate);
+		usleep(q->sendRate * 1000);
 	}
 	cout.flush();
 	return 0;

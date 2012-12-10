@@ -34,7 +34,7 @@ typedef struct _packethdr {
 
 ///////////////////////// Function Definitions
 int createAndSendPacket(int sock, int* id, char* data, size_t size, char* srcIP, char* destIP,
-		char* routerIP, int ttl, std::string filename);
+		char* routerIP, int ttl, int sourcePort, int destPort);
 void printPacket(packethdr* p);
 int sendPacket(int sock, packethdr* p, char* data, unsigned long nextIP);
 

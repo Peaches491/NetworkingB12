@@ -16,14 +16,15 @@
 
 #include "Packet.h"
 
+enum LogType {
+	TTL_EXPIRED, MAX_SENDQ_EXCEEDED, NO_ROUTE_TO_HOST, SENT_OKAY
+};
+
 namespace std {
 
 class PacketLogger {
-public:
-	enum LogType {
-		TTL_EXPIRED, MAX_SENDQ_EXCEEDED, NO_ROUTE_TO_HOST, SENT_OKAY
-	};
 
+public:
 	PacketLogger() {
 		typeString[TTL_EXPIRED] = string("TTL_EXPIRED");
 		typeString[MAX_SENDQ_EXCEEDED] = string("MAX_SENDQ_EXCEEDED");
@@ -46,7 +47,5 @@ private:
 	std::map<int, std::string> typeString;
 };
 }
-
-extern std::PacketLogger globalLog;
 
 #endif /* LOG_H_ */

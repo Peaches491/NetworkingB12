@@ -13,8 +13,11 @@
 #include <cerrno>
 #include <fstream>
 #include <signal.h>
+#include <sstream>
+
 #include "Host.h"
 #include "Packet.h"
+//#include "Globals.h"
 #include "cs3516sock.h"
 
 using namespace std;
@@ -38,47 +41,75 @@ static void terminate(int arg) {
 	exit(1);
 }
 
-int runHost(in_addr* ip, char* file, char* destIP, char* routerIP, int ttl) {
+int runHost(in_addr* ip, int deviceID, int ttl, map<int, uint32_t>* idToRealIP, map<int, int>* hostToRouter) {
+	char* file = "send_body";
+
 	cout << "---------- Host Mode Started " << endl;
 	cout << "File:   " << file << endl;
 	cout << "HostIP: " << inet_ntoa(*ip) << endl;
-	cout << "DestIP: " << destIP << endl;
-	cout << "Router: " << routerIP << endl;
+	cout << "Device ID: " << deviceID << endl;
+	int routerID = (*hostToRouter)[deviceID];
+	cout << "Router ID: " << routerID << endl;
+	in_addr routerBinIP;
+	routerBinIP.s_addr = ((*idToRealIP)[routerID]);
+	char* routerIP = inet_ntoa(routerBinIP);
+	cout << "Router IP: " << routerIP << endl;
 
 	signal(SIGINT, terminate);
 	signal(SIGABRT, terminate);
 	signal(SIGTERM, terminate);
 
 	hostSock = create_cs3516_socket();
-	//cout << sock << endl;
+	//cout << hostSock << endl;
+
+	ifstream fd("send_config.txt");
+	char* configBuf = new char[100];
+	fd.getline(configBuf, 100);
+
+	string line(configBuf);
+	string param;
+	string lineStr(line);
+	stringstream lineStream(line);
+
+	lineStream >> param;
+	string destIP(param.c_str());
+
+	lineStream >> param;
+	int sourcePort = atoi(param.c_str());
+
+	lineStream >> param;
+	int destPort = atoi(param.c_str());
+	fd.close();
+
 
 	if (strcmp(file, "") != 0) {
 		string fileString = string(file);
-		cout << "Got a file!" << endl;
 		FILE* fd = fopen(file, "r");
+		if(fd == NULL){
+			cout << "Could NOT open the file to be sent 'send_body'. Terminating..." << endl;
+			abort();
+		}
 
-		std::string filename;
 
-		size_t pos = fileString.find_last_of("/");
-		if (pos != std::string::npos)
-			filename.assign(fileString.begin() + pos + 1, fileString.end());
-		else
-			filename = fileString;
+		cout << "Got a file!" << endl;
 
 		char* readBuf = (char*)malloc(MAX_PAYLOAD);
 		char* dataBuf = (char*)malloc(MAX_PAYLOAD);
 
 		int size = getFileSize(fd);
+		cout << "Filesize was: " << size << endl;
 		int sent = 0;
 
+		cout << routerIP << endl;
+
 		createAndSendPacket(hostSock, &id, (char*) &size, sizeof(uint32_t),
-				inet_ntoa(*ip), destIP, routerIP, ttl, filename);
+				inet_ntoa(*ip), (char*)destIP.c_str(), routerIP, ttl, sourcePort, destPort);
 		while (sent < size) {
 			int bytesIn = fread((void*) readBuf, 1, MAX_PAYLOAD, fd);
 			dataBuf = (char*)realloc(dataBuf, bytesIn);
 			memcpy(dataBuf, readBuf, bytesIn);
 			sent += createAndSendPacket(hostSock, &id, dataBuf, bytesIn,
-					inet_ntoa(*ip), destIP, routerIP, ttl, filename);
+					inet_ntoa(*ip), (char*)destIP.c_str(), routerIP, ttl, sourcePort, destPort);
 			usleep(10);
 		}
 	} else {
@@ -94,7 +125,7 @@ int runHost(in_addr* ip, char* file, char* destIP, char* routerIP, int ttl) {
 	cout << "Done." << endl;
 
 	char* buf = (char*)malloc(MAX_PACKET_SIZE);
-	int recv = cs3516_recv(hostSock, buf, MAX_PACKET_SIZE);
+	cs3516_recv(hostSock, buf, MAX_PACKET_SIZE);
 	int packetCount = 0;
 	while (1) {
 

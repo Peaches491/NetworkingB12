@@ -16,7 +16,10 @@
 using namespace std;
 
 int createAndSendPacket(int sock, int* id, char* data, size_t size, char* srcIP,
-		char* destIP, char* routerIP, int ttl, std::string filename) {
+		char* destIP, char* routerIP, int ttl, int sourcePort, int destPort) {
+
+	cout << "SENDING" << endl;
+
 	unsigned int srcAddr = 0;
 	inet_pton(AF_INET, srcIP, &srcAddr);
 
@@ -25,6 +28,9 @@ int createAndSendPacket(int sock, int* id, char* data, size_t size, char* srcIP,
 
 	unsigned int routerAddr = 0;
 	inet_pton(AF_INET, routerIP, &routerAddr);
+
+
+
 
 	char* dataBuf = (char*)malloc(size);
 	memcpy(dataBuf, data, size);
@@ -39,18 +45,26 @@ int createAndSendPacket(int sock, int* id, char* data, size_t size, char* srcIP,
 	p->ip_header.ip_id = *id;
 	p->ip_header.ip_off = 0;
 	p->ip_header.ip_sum = 0;
+	p->ip_header.ip_tos = 0;
 	p->ip_header.ip_ttl = ttl;
 	p->ip_header.ip_p = IPPROTO_UDP;
 
-	p->udp_header.dest = MYPORT;
-	p->udp_header.source = MYPORT;
+	p->udp_header.dest = destPort;
+	p->udp_header.source = sourcePort;
 	p->udp_header.check = 0;
 	p->udp_header.len = size;
 
 	//strncpy(p->datahdr.filename, filename.c_str(), FILENAME_LENGTH);
 
+	cout << routerIP << endl;
+	cout << "This translates to 101: " << routerAddr << endl;
+
+	printPacket(p);
+
 	(*id)++;
 	int bytesSent = sendPacket(sock, p, data, routerAddr);
+
+
 
 	delete dataBuf;
 
@@ -68,6 +82,12 @@ int sendPacket(int sock, packethdr* p, char* data, unsigned long nextIP) {
 
 	int size = cs3516_send(sock, (char*) buffer, bufSize, nextIP);
 
+	in_addr tmp;
+	tmp.s_addr = nextIP;
+
+	cout << endl << endl;
+	cout << inet_ntoa(tmp) << endl;
+	cout << endl << endl;
 	//printPacket((packethdr*) buffer);
 
 	delete buffer;
