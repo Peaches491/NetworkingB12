@@ -146,15 +146,13 @@ int runRouter(in_addr* ip,
 	FD_SET(routerSock, &set);
 
 	//PacketQueue q = new PacketQueue(queueSize, delayList[1][2]);
-	int toDev = (*deviceList)[0].front();
+	int toDev = (*deviceList)[deviceID].back();
 	PacketQueue* q = new PacketQueue(routerSock, queueSize, toDev, deviceID, logger, delayList);
 
 	map<int, PacketQueue*> queueMap;
 	queueMap[toDev] = q;
 
-	cout << "runQueue()" << endl;
 	q->runQueue();
-	cout << "returned" << endl;
 
 	packethdr* newPacket = new packethdr;
 
@@ -165,7 +163,6 @@ int runRouter(in_addr* ip,
 		timeval t2;
 		fd_set set2;
 
-		cout << "Starting select..." << endl;
 		selecting = true;
 		while (selecting) {
 			memcpy(&t2, &t, sizeof(timeval));
@@ -210,12 +207,12 @@ int runRouter(in_addr* ip,
 			newPacket = (packethdr*)malloc(recvBytes);
 			memcpy(newPacket, buf, recvBytes);
 
-			cout << "NEW PACKET CREATED!" << endl;
+//			cout << "NEW PACKET CREATED!" << endl;
 
-			pthread_mutex_lock(q->getQueueLock());
+
 			q->enqueue(newPacket);
-			cout << "\tENQUEUE " << q->getQueue()->size() << endl;
-			pthread_mutex_unlock(q->getQueueLock());
+			//cout << "\tENQUEUE " << q->getQueue()->size() << endl;
+
 
 			//int send = cs3516_send(routerSock, buf, recvBytes, p->ip_header.ip_dst.s_addr);
 

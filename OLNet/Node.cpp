@@ -56,9 +56,9 @@ int main(int argc, char* argv[]) {
 
 	bool router = false;
 
-	in_addr thisIP;
-	getIP(&thisIP);
-	cout << "Detected IP Address is: " << inet_ntoa(thisIP) << endl;
+	in_addr* thisIP = (in_addr*)malloc(sizeof(in_addr));
+	getIP(thisIP);
+	cout << "Detected IP Address is: " << inet_ntoa(*thisIP) << endl;
 
 	// Host Tag
 	if (strcmp(argv[1], "-h") == 0) {
@@ -154,7 +154,7 @@ int main(int argc, char* argv[]) {
 							} else if (tokenCount == 2) {
 								inet_aton(token, &tmpaddr);
 								parsedToken[1] = tmpaddr.s_addr;
-								if (thisIP.s_addr == tmpaddr.s_addr)
+								if (thisIP->s_addr == tmpaddr.s_addr)
 									deviceId = parsedToken[0];
 								idToRealIP[parsedToken[0]] = tmpaddr.s_addr;
 							}
@@ -229,8 +229,12 @@ int main(int argc, char* argv[]) {
 								int queueNum = devB;
 								tree->insert(queueNum, ntohl(lpmIP), length);
 
-								deviceList[devA].push_back(devB);
-								deviceList[devB].push_back(devA);
+								cout << "Adding " << devB << " to " << devA << endl;
+								(deviceList[devA]).push_back(devB);
+								cout << deviceList[devA].back() << endl;
+								cout << "Adding " << devA << " to " << devB << endl;
+								(deviceList[devB]).push_back(devA);
+								cout << deviceList[devB].back() << endl;
 
 								hostToRouter[devB] = devA;
 
@@ -250,9 +254,9 @@ int main(int argc, char* argv[]) {
 	}
 
 	if (router == true) {
-		return runRouter(&thisIP, deviceId, queueLength, tree, logger, &delayList, &overlayIPToDeviceID, &deviceList);
+		return runRouter(thisIP, deviceId, queueLength, tree, logger, &delayList, &overlayIPToDeviceID, &deviceList);
 	} else {
-		return runHost(&thisIP, deviceId, TTL, &idToRealIP, &hostToRouter);
+		return runHost(thisIP, deviceId, TTL, &idToRealIP, &hostToRouter);
 	}
 }
 
@@ -279,6 +283,7 @@ void getIP(in_addr* result) {
 			// is a valid IP4 Address
 			//result = &((struct sockaddr_in *) ifa->ifa_addr)->sin_addr
 			tmpAddrPtr = &((struct sockaddr_in *) ifa->ifa_addr)->sin_addr;
+			//result = (in_addr*)malloc(sizeof(struct in_addr));
 			memcpy(result, tmpAddrPtr, sizeof(in_addr));
 			char addressBuffer[INET_ADDRSTRLEN];
 			inet_ntop(AF_INET, tmpAddrPtr, addressBuffer, INET_ADDRSTRLEN);

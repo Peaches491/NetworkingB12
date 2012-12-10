@@ -18,8 +18,6 @@ using namespace std;
 int createAndSendPacket(int sock, int* id, char* data, size_t size, char* srcIP,
 		char* destIP, char* routerIP, int ttl, int sourcePort, int destPort) {
 
-	cout << "SENDING" << endl;
-
 	unsigned int srcAddr = 0;
 	inet_pton(AF_INET, srcIP, &srcAddr);
 
@@ -28,8 +26,6 @@ int createAndSendPacket(int sock, int* id, char* data, size_t size, char* srcIP,
 
 	unsigned int routerAddr = 0;
 	inet_pton(AF_INET, routerIP, &routerAddr);
-
-
 
 
 	char* dataBuf = (char*)malloc(size);
@@ -54,17 +50,9 @@ int createAndSendPacket(int sock, int* id, char* data, size_t size, char* srcIP,
 	p->udp_header.check = 0;
 	p->udp_header.len = size;
 
-	//strncpy(p->datahdr.filename, filename.c_str(), FILENAME_LENGTH);
-
-	cout << routerIP << endl;
-	cout << "This translates to 101: " << routerAddr << endl;
-
-	printPacket(p);
 
 	(*id)++;
 	int bytesSent = sendPacket(sock, p, data, routerAddr);
-
-
 
 	delete dataBuf;
 
@@ -85,9 +73,6 @@ int sendPacket(int sock, packethdr* p, char* data, unsigned long nextIP) {
 	in_addr tmp;
 	tmp.s_addr = nextIP;
 
-	cout << endl << endl;
-	cout << inet_ntoa(tmp) << endl;
-	cout << endl << endl;
 	//printPacket((packethdr*) buffer);
 
 	delete buffer;

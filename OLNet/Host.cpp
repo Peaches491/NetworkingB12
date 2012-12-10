@@ -41,19 +41,23 @@ static void terminate(int arg) {
 	exit(1);
 }
 
-int runHost(in_addr* ip, int deviceID, int ttl, map<int, uint32_t>* idToRealIP, map<int, int>* hostToRouter) {
+int runHost(in_addr* _ip, int deviceID, int ttl, map<int, uint32_t>* idToRealIP, map<int, int>* hostToRouter) {
 	char* file = "send_body";
+	in_addr ip;
+	memcpy(&ip, _ip, sizeof(in_addr));
 
 	cout << "---------- Host Mode Started " << endl;
 	cout << "File:   " << file << endl;
-	cout << "HostIP: " << inet_ntoa(*ip) << endl;
-	cout << "Device ID: " << deviceID << endl;
+	cout << "Host ID: " << deviceID << endl;
+	cout << "Host IP: " << inet_ntoa(ip) << endl;
 	int routerID = (*hostToRouter)[deviceID];
 	cout << "Router ID: " << routerID << endl;
 	in_addr routerBinIP;
-	routerBinIP.s_addr = ((*idToRealIP)[routerID]);
+	routerBinIP.s_addr = (*idToRealIP)[routerID];
 	char* routerIP = inet_ntoa(routerBinIP);
 	cout << "Router IP: " << routerIP << endl;
+
+	bool sending = true;
 
 	signal(SIGINT, terminate);
 	signal(SIGABRT, terminate);
@@ -63,6 +67,7 @@ int runHost(in_addr* ip, int deviceID, int ttl, map<int, uint32_t>* idToRealIP, 
 	//cout << hostSock << endl;
 
 	ifstream fd("send_config.txt");
+	if(!fd.good()) sending = false;
 	char* configBuf = new char[100];
 	fd.getline(configBuf, 100);
 
@@ -82,7 +87,7 @@ int runHost(in_addr* ip, int deviceID, int ttl, map<int, uint32_t>* idToRealIP, 
 	fd.close();
 
 
-	if (strcmp(file, "") != 0) {
+	if (sending) {
 		string fileString = string(file);
 		FILE* fd = fopen(file, "r");
 		if(fd == NULL){
@@ -97,19 +102,32 @@ int runHost(in_addr* ip, int deviceID, int ttl, map<int, uint32_t>* idToRealIP, 
 		char* dataBuf = (char*)malloc(MAX_PAYLOAD);
 
 		int size = getFileSize(fd);
-		cout << "Filesize was: " << size << endl;
+		cout << "Filesize is: " << size << endl;
 		int sent = 0;
 
-		cout << routerIP << endl;
+
+		char* temp3 = (char*)malloc(16);
+		memcpy(temp3, routerIP, 16);
+		temp3[15] ='\0';
+
+		char* temp1 = (char*)malloc(16);
+		memcpy(temp1, inet_ntoa(ip), 16);
+		temp1[15] = '\0';
+
+//		cout << temp3 << endl;
+
+		char* temp2 = (char*)malloc(16);
+		memcpy(temp2, destIP.c_str(), 16);
 
 		createAndSendPacket(hostSock, &id, (char*) &size, sizeof(uint32_t),
-				inet_ntoa(*ip), (char*)destIP.c_str(), routerIP, ttl, sourcePort, destPort);
+				temp1, temp2, temp3, ttl, sourcePort, destPort);
 		while (sent < size) {
 			int bytesIn = fread((void*) readBuf, 1, MAX_PAYLOAD, fd);
 			dataBuf = (char*)realloc(dataBuf, bytesIn);
 			memcpy(dataBuf, readBuf, bytesIn);
 			sent += createAndSendPacket(hostSock, &id, dataBuf, bytesIn,
-					inet_ntoa(*ip), (char*)destIP.c_str(), routerIP, ttl, sourcePort, destPort);
+					temp1, temp2, temp3,
+					ttl, sourcePort, destPort);
 			usleep(10);
 		}
 	} else {

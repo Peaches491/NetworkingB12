@@ -20,6 +20,7 @@ PacketQueue::PacketQueue(int socket, unsigned int size, int dest, int source,
 		PacketLogger* logPtr, map<int, map<int, int> >* delayList) {
 	sock = socket;
 	//TODO Remove once the delay list is populated
+	cout << source << " " << dest << endl;
 	sendRate = (*delayList)[source][dest];
 	//sendRate = 5;
 	queueSize = size;
@@ -36,7 +37,9 @@ PacketQueue::~PacketQueue() {
 }
 
 void PacketQueue::enqueue(packethdr* p) {
+	pthread_mutex_lock(this->getQueueLock());
 	this->getQueue()->push(p);
+	pthread_mutex_unlock(this->getQueueLock());
 }
 
 pthread_t* PacketQueue::runQueue() {
