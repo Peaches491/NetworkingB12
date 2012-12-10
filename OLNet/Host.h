@@ -14,7 +14,8 @@ int runHost(in_addr* ip,
 		int deviceID,
 		int ttl,
 		std::map<int, uint32_t>* idToRealIP,
-		std::map<int, int>* hostToRouter);
+		std::map<int, int>* hostToRouter,
+		std::map<int, std::map<int, int> >* delayList);
 
 int getFileSize(FILE* fd);
 

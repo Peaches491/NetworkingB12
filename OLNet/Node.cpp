@@ -96,7 +96,7 @@ int main(int argc, char* argv[]) {
 	if (1) {
 		ifstream f;
 		f.open("config.txt", ios::in | ios::binary);
-		cout << "opening 'config.txt'...." << endl;
+//		cout << "opening 'config.txt'...." << endl;
 
 		//seek to the end of the file
 		f.seekg(0, ios::end);
@@ -106,7 +106,7 @@ int main(int argc, char* argv[]) {
 			//hop back to the beginning
 			f.seekg(0, ios::beg);
 
-			cout << "... opened. Parsing for config information..." << endl;
+//			cout << "... opened. Parsing for config information..." << endl;
 
 			while (!f.eof()) {
 				char line[100];
@@ -123,13 +123,13 @@ int main(int argc, char* argv[]) {
 				if (!f.gcount())
 					continue;
 
-				cout << "got tokens:  ";
+//				cout << "got tokens:  ";
 
 				token = strtok(line, " ");
 
 				do {
 					//pull tokens out of it
-					cout << token << ",  ";
+//					cout << token << ",  ";
 
 					if (tokenCount == 0) {
 
@@ -229,12 +229,12 @@ int main(int argc, char* argv[]) {
 								int queueNum = devB;
 								tree->insert(queueNum, ntohl(lpmIP), length);
 
-								cout << "Adding " << devB << " to " << devA << endl;
+//								cout << "Adding " << devB << " to " << devA << endl;
 								(deviceList[devA]).push_back(devB);
-								cout << deviceList[devA].back() << endl;
-								cout << "Adding " << devA << " to " << devB << endl;
+//								cout << deviceList[devA].back() << endl;
+//								cout << "Adding " << devA << " to " << devB << endl;
 								(deviceList[devB]).push_back(devA);
-								cout << deviceList[devB].back() << endl;
+//								cout << deviceList[devB].back() << endl;
 
 								hostToRouter[devB] = devA;
 
@@ -247,7 +247,7 @@ int main(int argc, char* argv[]) {
 					token = strtok(NULL, " ");
 					tokenCount++;
 				} while (token != NULL);
-				cout << endl;
+//				cout << endl;
 			}
 		}
 		f.close();
@@ -256,7 +256,7 @@ int main(int argc, char* argv[]) {
 	if (router == true) {
 		return runRouter(thisIP, deviceId, queueLength, tree, logger, &delayList, &overlayIPToDeviceID, &deviceList);
 	} else {
-		return runHost(thisIP, deviceId, TTL, &idToRealIP, &hostToRouter);
+		return runHost(thisIP, deviceId, TTL, &idToRealIP, &hostToRouter, &delayList);
 	}
 }
 

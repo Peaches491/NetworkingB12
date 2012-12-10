@@ -41,15 +41,15 @@ static void terminate(int arg) {
 	exit(1);
 }
 
-int runHost(in_addr* _ip, int deviceID, int ttl, map<int, uint32_t>* idToRealIP, map<int, int>* hostToRouter) {
+int runHost(in_addr* _ip, int deviceID, int ttl, map<int, uint32_t>* idToRealIP, map<int, int>* hostToRouter, map<int, map<int, int> >* delayList) {
 	char* file = "send_body";
 	in_addr ip;
 	memcpy(&ip, _ip, sizeof(in_addr));
 
 	cout << "---------- Host Mode Started " << endl;
-	cout << "File:   " << file << endl;
-	cout << "Host ID: " << deviceID << endl;
-	cout << "Host IP: " << inet_ntoa(ip) << endl;
+	cout << "File:      " << file << endl;
+	cout << "Host ID:   " << deviceID << endl;
+	cout << "Host IP:   " << inet_ntoa(ip) << endl;
 	int routerID = (*hostToRouter)[deviceID];
 	cout << "Router ID: " << routerID << endl;
 	in_addr routerBinIP;
@@ -88,22 +88,21 @@ int runHost(in_addr* _ip, int deviceID, int ttl, map<int, uint32_t>* idToRealIP,
 
 
 	if (sending) {
+		cout << "Opening file to be sent... ";
 		string fileString = string(file);
 		FILE* fd = fopen(file, "r");
 		if(fd == NULL){
-			cout << "Could NOT open the file to be sent 'send_body'. Terminating..." << endl;
+			cout << endl << "Could NOT open the file to be sent 'send_body'. Terminating..." << endl;
 			abort();
 		}
-
-
-		cout << "Got a file!" << endl;
 
 		char* readBuf = (char*)malloc(MAX_PAYLOAD);
 		char* dataBuf = (char*)malloc(MAX_PAYLOAD);
 
 		int size = getFileSize(fd);
-		cout << "Filesize is: " << size << endl;
 		int sent = 0;
+		cout << "Done." << endl;
+		cout << "Filesize is: " << size << endl;
 
 		////////////////////////////////
 		// DO NOT TOUCH THESE MEMCPYs //

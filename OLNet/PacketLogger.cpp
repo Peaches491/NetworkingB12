@@ -39,17 +39,23 @@ void PacketLogger::logPacket(packethdr* p, LogType type, in_addr nextHop) {
 
 	char* delim = " ";
 	char* str = (char*) malloc(100);
+	char* next = (char*) malloc(16);
+	memcpy(next, inet_ntoa(nextHop), 16);
+	char* src = (char*) malloc(16);
+	memcpy(src, inet_ntoa(nextHop), 16);
+	char* dst = (char*) malloc(16);
+	memcpy(dst, inet_ntoa(nextHop), 16);
 	bzero(str, 100);
 
 	if (type == SENT_OKAY) {
 		sprintf(str, "%ld%s%s%s%s%s%d%s%s%s%s", (long int) time(NULL), delim,
-				inet_ntoa(p->ip_header.ip_src), delim,
-				inet_ntoa(p->ip_header.ip_dst), delim, p->ip_header.ip_id,
-				delim, (typeString[type]).c_str(), delim, inet_ntoa(nextHop));
+				src, delim,
+				dst, delim, p->ip_header.ip_id,
+				delim, (typeString[type]).c_str(), delim, next);
 	} else {
 		sprintf(str, "%ld%s%s%s%s%s%d%s%s", (long int) time(NULL), delim,
-				inet_ntoa(p->ip_header.ip_src), delim,
-				inet_ntoa(p->ip_header.ip_dst), delim, p->ip_header.ip_id,
+				src, delim,
+				dst, delim, p->ip_header.ip_id,
 				delim, (typeString[type]).c_str());
 	}
 

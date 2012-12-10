@@ -120,9 +120,9 @@ int runRouter(in_addr* ip,
 				string("01010101010101010101010101010101").length());
 	}
 
-	tree->print();
+//	tree->print();
 
-	cout << endl << "---------- Router Mode Started" << endl;
+	cout << "---------- Router Mode Started" << endl;
 
 	cout << "Opening log file... ";
 	logger->initLogger();
