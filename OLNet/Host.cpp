@@ -26,9 +26,19 @@ using namespace std;
 int id = 0;
 FILE* rFile;
 ofstream stats;
+map<int, fileData>files;
 int hostSock = -1;
 
+void printFileStats(fileData d);
+
 static void terminate(int arg) {
+
+	map<int, fileData>::iterator it;
+	for (it = files.begin(); it != files.end(); ++it) {
+		printFileStats(it->second);
+	}
+
+
 	cout << endl << "Terminating host... " << endl;
 
 	cout << "Closing receive file... ";
@@ -49,7 +59,7 @@ static void terminate(int arg) {
 
 int runHost(in_addr* _ip, int deviceID, int ttl, map<int, uint32_t>* idToRealIP,
 		map<int, uint32_t>* idToOverlayIP, map<int, int>* hostToRouter,
-		map<int, map<int, int> >* delayList) {
+		map<int, map<int, int> >* delayList, map<uint32_t, int>* overlayIPToDeviceID) {
 	char* file = "send_body";
 	in_addr ip;
 	memcpy(&ip, _ip, sizeof(in_addr));
@@ -124,16 +134,6 @@ int runHost(in_addr* _ip, int deviceID, int ttl, map<int, uint32_t>* idToRealIP,
 	int destPort = atoi(param.c_str());
 	fd.close();
 
-	//////////////////////////////// Select
-
-	timeval t { 0 };
-	t.tv_usec = 10;
-	fd_set set;
-	FD_SET(hostSock, &set);
-
-	timeval t2;
-	fd_set set2;
-
 	if (sending) {
 		//(char* file, int delay, char* hostOverlayIPString, char* destRealIPString, char* routerRealIPString, int ttl, int sourcePort, int destPort, int deviceID, int routerID)
 		data d;
@@ -172,6 +172,7 @@ int runHost(in_addr* _ip, int deviceID, int ttl, map<int, uint32_t>* idToRealIP,
 	}
 	cout << "Done." << endl;
 
+
 	while (1) {
 		char* buf = (char*) malloc(MAX_PACKET_SIZE);
 		//cs3516_recv(hostSock, buf, MAX_PACKET_SIZE);
@@ -182,64 +183,94 @@ int runHost(in_addr* _ip, int deviceID, int ttl, map<int, uint32_t>* idToRealIP,
 		memset(buf, 0, MAX_PACKET_SIZE);
 
 		int recv = cs3516_recv(hostSock, buf, MAX_PACKET_SIZE);
-		//packetCount++;
 		buf = (char*) realloc(buf, recv);
-		//memset(buf, 0, recv);
-		//	cout << "Got: " << recv << endl;
 
 		packethdr* p = ((packethdr*) buf);
-		int* data = (int*) (buf + sizeof(packethdr));
+		char* data = (char*) (buf + sizeof(packethdr));
 
-		int fileSize = *data;
+		int sourceID = (*overlayIPToDeviceID)[p->ip_header.ip_src.s_addr];
 
-		cout << endl;
-		printf("Receiving file of size: %d\n", fileSize);
+		if(p->ip_header.ip_id == 0){
+			files[sourceID].deviceID = sourceID;
+			int fileSize = *((int*)data);
+			files[sourceID].filesize = fileSize;
+			files[sourceID].packetCount = (fileSize/MAX_PAYLOAD);
+			if(fileSize%MAX_PAYLOAD != 0) files[sourceID].packetCount++;
+			files[sourceID].packets = 0;
+			files[sourceID].totalData = 0;
+			files[sourceID].totalDataSansHeaders = 0;
 
-		bool receiving = true;
+			for(int i = 1; i <= files[sourceID].packetCount; i++){
+				files[sourceID].missingPackets.push_back(i);
+			}
 
-		while (receiving) {
+			stringstream ss;
+			ss << sourceID;
+			files[sourceID].filename = string("receive_") + ss.str();
+			files[sourceID].file = fopen(files[sourceID].filename.c_str(), "w+");
+			fclose(files[sourceID].file);
 
-			buf = (char*) realloc(buf, MAX_PACKET_SIZE);
-			memset(buf, 0, MAX_PACKET_SIZE);
+			cout << endl;
+			printf("Receiving file of size: %d\n", fileSize);
+			continue;
+		}
 
-			int recv = cs3516_recv(hostSock, buf, MAX_PACKET_SIZE);
-			packetCount++;
+		map<int, fileData>::iterator it = files.find(sourceID);
+		fileData fData;
+		if(it != files.end()) {
+
+			files[sourceID].packets++;
+
+			files[sourceID].missingPackets.remove(p->ip_header.ip_id);
 
 			//cout << "Recv: " << recv << " bytes" << endl;
-			totalData += recv;
-			totalDataSansHeaders += (recv - sizeof(packethdr));
+			files[sourceID].totalData += recv;
+			files[sourceID].totalDataSansHeaders += (recv - sizeof(packethdr));
 
 			buf = (char*) realloc(buf, recv);
 
-			packethdr* p = ((packethdr*) buf);
-			char* data = (char*) (buf + sizeof(packethdr));
-
-			//printPacket(p);
-			cout << "Received packet #" << p->ip_header.ip_id << " " << recv << " bytes." << endl;
-			cout << packetCount  << " packets totalling " << totalData << " bytes (" << totalDataSansHeaders << " payload)"<< endl;
-
-			//printPacket(p);
+			cout << "Received packet #" << p->ip_header.ip_id << " " << recv << " bytes from device " << sourceID << endl;
+			cout << files[sourceID].packets << " of " << files[sourceID].packetCount << " packets totalling " << files[sourceID].totalData << " bytes (" << files[sourceID].totalDataSansHeaders << " payload)"<< endl;
 
 			stats << inet_ntoa(p->ip_header.ip_src);
 			stats << " " << inet_ntoa(p->ip_header.ip_dst);
 			stats << " " << p->udp_header.source;
 			stats << " " << p->udp_header.dest << endl;
 
-			usleep(50);
-
+			files[sourceID].file = fopen(files[sourceID].filename.c_str(), "a+");
 			for (int i = 0; i < p->udp_header.len; i++) {
-				fputc(data[i], rFile);
+				fputc(data[i], files[sourceID].file);
 			}
+			fclose(files[sourceID].file);
 
-			if(totalDataSansHeaders == fileSize){
-				cout << "File Complete." << endl;
-				receiving = false;
+			if(files[sourceID].totalDataSansHeaders == files[sourceID].filesize){
+				cout << "File " << sourceID << " Complete." << endl;
+				printFileStats(files[sourceID]);
 			}
-
 		}
 	}
 
 	return 0;
+}
+
+void printFileStats(fileData d){
+
+	cout << endl << "File ----------------------" << endl;
+	cout << "Filename:         " << d.filename << endl;
+	cout << "Source Device:    " << d.deviceID << endl;
+	cout << "Filesize:         " << d.filesize << endl;
+	cout << "Expected Packets: " << d.packets << endl;
+	cout << "Recieved Data:    " << d.totalDataSansHeaders << endl;
+	cout << "Missing Packets:  ";
+
+	if(d.missingPackets.empty()) cout << "None.";
+	else{
+		list<int>::iterator it;
+		for (it = d.missingPackets.begin(); it!=d.missingPackets.end(); ++it) {
+			cout << *it << " ";
+		}
+	}
+	cout << endl;
 }
 
 int getFileSize(FILE* fd) {

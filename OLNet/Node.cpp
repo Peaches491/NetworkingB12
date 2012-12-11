@@ -226,7 +226,7 @@ int main(int argc, char* argv[]) {
 	if (router == true) {
 		return runRouter(thisIP, deviceId, queueLength, tree, logger, &delayList, &overlayIPToDeviceID, &idToRealIP, &deviceList);
 	} else {
-		return runHost(thisIP, deviceId, TTL, &idToRealIP, &idToOverlayIP, &hostToRouter, &delayList);
+		return runHost(thisIP, deviceId, TTL, &idToRealIP, &idToOverlayIP, &hostToRouter, &delayList, &overlayIPToDeviceID);
 	}
 }
 
