@@ -172,60 +172,73 @@ int runHost(in_addr* _ip, int deviceID, int ttl, map<int, uint32_t>* idToRealIP,
 	}
 	cout << "Done." << endl;
 
-	char* buf = (char*) malloc(MAX_PACKET_SIZE);
-	//cs3516_recv(hostSock, buf, MAX_PACKET_SIZE);
-	int packetCount = 0;
-	int totalData = 0;
-
-	memset(buf, 0, MAX_PACKET_SIZE);
-
-	int recv = cs3516_recv(hostSock, buf, MAX_PACKET_SIZE);
-	//packetCount++;
-	buf = (char*) realloc(buf, recv);
-	//memset(buf, 0, recv);
-//	cout << "Got: " << recv << endl;
-
-	packethdr* p = ((packethdr*) buf);
-	int* data = (int*) (buf + sizeof(packethdr));
-
-	cout << endl;
-	printf("Receiving file of size: %d\n", *data);
-
 	while (1) {
+		char* buf = (char*) malloc(MAX_PACKET_SIZE);
+		//cs3516_recv(hostSock, buf, MAX_PACKET_SIZE);
+		int packetCount = 0;
+		int totalData = 0;
+		int totalDataSansHeaders = 0;
 
-		buf = (char*) realloc(buf, MAX_PACKET_SIZE);
 		memset(buf, 0, MAX_PACKET_SIZE);
 
 		int recv = cs3516_recv(hostSock, buf, MAX_PACKET_SIZE);
-		packetCount++;
-
-		//cout << "Recv: " << recv << " bytes" << endl;
-		totalData += recv;
-
+		//packetCount++;
 		buf = (char*) realloc(buf, recv);
+		//memset(buf, 0, recv);
+		//	cout << "Got: " << recv << endl;
 
 		packethdr* p = ((packethdr*) buf);
-		char* data = (char*) (buf + sizeof(packethdr));
+		int* data = (int*) (buf + sizeof(packethdr));
 
-		//printPacket(p);
-		cout << "Recieved " << packetCount << " packets." << endl;
+		int fileSize = *data;
 
-		//printPacket(p);
+		cout << endl;
+		printf("Receiving file of size: %d\n", fileSize);
 
-		stats << inet_ntoa(p->ip_header.ip_src);
-		stats << " " << inet_ntoa(p->ip_header.ip_dst);
-		stats << " " << p->udp_header.source;
-		stats << " " << p->udp_header.dest << endl;
+		bool receiving = true;
 
-		usleep(50);
+		while (receiving) {
 
-		for (int i = 0; i < p->udp_header.len; i++) {
-			fputc(data[i], rFile);
+			buf = (char*) realloc(buf, MAX_PACKET_SIZE);
+			memset(buf, 0, MAX_PACKET_SIZE);
+
+			int recv = cs3516_recv(hostSock, buf, MAX_PACKET_SIZE);
+			packetCount++;
+
+			//cout << "Recv: " << recv << " bytes" << endl;
+			totalData += recv;
+			totalDataSansHeaders += (recv - sizeof(packethdr));
+
+			buf = (char*) realloc(buf, recv);
+
+			packethdr* p = ((packethdr*) buf);
+			char* data = (char*) (buf + sizeof(packethdr));
+
+			//printPacket(p);
+			cout << "Received packet #" << p->ip_header.ip_id << " " << recv << " bytes." << endl;
+			cout << packetCount  << " packets totalling " << totalData << " bytes (" << totalDataSansHeaders << " payload)"<< endl;
+
+			//printPacket(p);
+
+			stats << inet_ntoa(p->ip_header.ip_src);
+			stats << " " << inet_ntoa(p->ip_header.ip_dst);
+			stats << " " << p->udp_header.source;
+			stats << " " << p->udp_header.dest << endl;
+
+			usleep(50);
+
+			for (int i = 0; i < p->udp_header.len; i++) {
+				fputc(data[i], rFile);
+			}
+
+			if(totalDataSansHeaders == fileSize){
+				cout << "File Complete." << endl;
+				receiving = false;
+			}
+
 		}
-
-		//char* data = buf + sizeof(packethdr);
-		//cout << data << endl;
 	}
+
 	return 0;
 }
 
