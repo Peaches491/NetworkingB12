@@ -173,8 +173,24 @@ int runHost(in_addr* _ip, int deviceID, int ttl, map<int, uint32_t>* idToRealIP,
 	cout << "Done." << endl;
 
 	char* buf = (char*) malloc(MAX_PACKET_SIZE);
-	cs3516_recv(hostSock, buf, MAX_PACKET_SIZE);
+	//cs3516_recv(hostSock, buf, MAX_PACKET_SIZE);
 	int packetCount = 0;
+	int totalData = 0;
+
+	memset(buf, 0, MAX_PACKET_SIZE);
+
+	int recv = cs3516_recv(hostSock, buf, MAX_PACKET_SIZE);
+	//packetCount++;
+	buf = (char*) realloc(buf, recv);
+	//memset(buf, 0, recv);
+//	cout << "Got: " << recv << endl;
+
+	packethdr* p = ((packethdr*) buf);
+	int* data = (int*) (buf + sizeof(packethdr));
+
+	cout << endl;
+	printf("Receiving file of size: %d\n", *data);
+
 	while (1) {
 
 		buf = (char*) realloc(buf, MAX_PACKET_SIZE);
@@ -183,7 +199,8 @@ int runHost(in_addr* _ip, int deviceID, int ttl, map<int, uint32_t>* idToRealIP,
 		int recv = cs3516_recv(hostSock, buf, MAX_PACKET_SIZE);
 		packetCount++;
 
-		cout << "Recv: " << recv << " bytes" << endl;
+		//cout << "Recv: " << recv << " bytes" << endl;
+		totalData += recv;
 
 		buf = (char*) realloc(buf, recv);
 
