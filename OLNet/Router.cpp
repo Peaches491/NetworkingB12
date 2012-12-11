@@ -239,7 +239,10 @@ int runRouter(in_addr* ip,
 			}
 
 			// If this is the last hop for the packet, drop it
-			if (p->ip_header.ip_ttl == 1) {
+//			cout << p->ip_header.ip_ttl << endl;
+			p->ip_header.ip_ttl = p->ip_header.ip_ttl - 1;
+//			cout << p->ip_header.ip_ttl << endl;
+			if (p->ip_header.ip_ttl == 0) {
 				logger->logPacket(p, TTL_EXPIRED);
 				continue;
 			}
