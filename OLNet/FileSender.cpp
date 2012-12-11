@@ -88,6 +88,7 @@ void* senderFunc(void* ptr) {
 				sndr->destPort);
 		usleep(sndr->delay * 1000);
 	}
+	fclose(fd);
 	return 0;
 }
 
