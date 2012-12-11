@@ -14,8 +14,8 @@ CFLAGS = -g -pthread -std=c++0x -Wall
 all: node
 	
 		
-node: node.o host.o router.o packet.o cs.o tree.o pq.o logger.o
-	g++ node.o router.o host.o packet.o cs.o tree.o pq.o logger.o $(CFLAGS) -o node
+node: node.o host.o router.o packet.o cs.o tree.o pq.o logger.o fs.o
+	g++ node.o router.o host.o packet.o cs.o tree.o pq.o logger.o fs.o $(CFLAGS) -o node
 
 	
 	
@@ -41,7 +41,10 @@ tree.o: LPMTree.cpp
 	g++ -c $(CFLAGS) LPMTree.cpp -o tree.o
 
 pq.o:  
-	g++ -c $(CFLAGS) PacketQueue.cpp -o pq.o	
+	g++ -c $(CFLAGS) PacketQueue.cpp -o pq.o
+	
+fs.o:  
+	g++ -c $(CFLAGS) FileSender.cpp -o fs.o	
 	
 
 

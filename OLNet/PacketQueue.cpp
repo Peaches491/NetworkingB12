@@ -14,7 +14,7 @@
 
 namespace std {
 
-void* print_message(void* queue);
+void* threadFunc(void* queue);
 
 PacketQueue::PacketQueue(int socket, unsigned int size, int dest, int source,
 		PacketLogger* logPtr, map<int, map<int, int> >* delayList, uint32_t _nextHop) {
@@ -43,7 +43,7 @@ void PacketQueue::enqueue(packethdr* p) {
 pthread_t* PacketQueue::runQueue() {
 	cout << "Starting thread... ";
 	this->running = true;
-	if (pthread_create(this->thread, NULL, (&(print_message)), (void*) this)
+	if (pthread_create(this->thread, NULL, (&(threadFunc)), (void*) this)
 			== 0) {
 		cout << "Done." << endl;
 		return this->thread;
@@ -53,7 +53,7 @@ pthread_t* PacketQueue::runQueue() {
 	}
 }
 
-void* print_message(void* ptr) {
+void* threadFunc(void* ptr) {
 	PacketQueue* q = (PacketQueue*) ptr;
 	packethdr* p = new packethdr;
 	bool exiting = false;

@@ -19,11 +19,13 @@
 #include "Packet.h"
 //#include "Globals.h"
 #include "cs3516sock.h"
+#include "FileSender.h"
 
 using namespace std;
 
 int id = 0;
 FILE* rFile;
+ofstream stats;
 int hostSock = -1;
 
 static void terminate(int arg) {
@@ -32,6 +34,10 @@ static void terminate(int arg) {
 	cout << "Closing receive file... ";
 	if (rFile != NULL)
 		fclose(rFile);
+	cout << "Done." << endl;
+
+	cout << "Closing receive file... ";
+	stats.close();
 	cout << "Done." << endl;
 
 	cout << "Closing socket... ";
@@ -118,43 +124,50 @@ int runHost(in_addr* _ip, int deviceID, int ttl, map<int, uint32_t>* idToRealIP,
 	int destPort = atoi(param.c_str());
 	fd.close();
 
+	//////////////////////////////// Select
+
+	timeval t { 0 };
+	t.tv_usec = 10;
+	fd_set set;
+	FD_SET(hostSock, &set);
+
+	timeval t2;
+	fd_set set2;
+
 	if (sending) {
-		cout << "Opening file to be sent... ";
-		string fileString = string(file);
-		FILE* fd = fopen(file, "r");
-		if (fd == NULL) {
-			cout << endl
-					<< "Could NOT open the file to be sent 'send_body'. Terminating..."
-					<< endl;
-			abort();
-		}
+		//(char* file, int delay, char* hostOverlayIPString, char* destRealIPString, char* routerRealIPString, int ttl, int sourcePort, int destPort, int deviceID, int routerID)
+		data d;
+		d.delay = (*delayList)[deviceID][routerID];
+		d.destPort = destPort;
+		d.destRealIPString = destRealIPString;
+		d.deviceID = deviceID;
+		d.file = file;
+		d.hostOverlayIPString = hostOverlayIPString;
+		d.id = &id;
+		d.routerID = routerID;
+		d.routerRealIPString = routerRealIPString;
+		d.sock = hostSock;
+		d.sourcePort = sourcePort;
+		d.ttl = ttl;
 
-		char* readBuf = (char*) malloc(MAX_PAYLOAD);
-		char* dataBuf = (char*) malloc(MAX_PAYLOAD);
-
-		int size = getFileSize(fd);
-		int sent = 0;
-		cout << "Done." << endl;
-		cout << "Filesize is: " << size << endl;
-
-		createAndSendPacket(hostSock, &id, (char*) &size, sizeof(uint32_t),
-				hostOverlayIPString, destRealIPString, routerRealIPString, ttl, sourcePort, destPort);
-		while (sent < size) {
-			int bytesIn = fread((void*) readBuf, 1, MAX_PAYLOAD, fd);
-			dataBuf = (char*) realloc(dataBuf, bytesIn);
-			memcpy(dataBuf, readBuf, bytesIn);
-			sent += createAndSendPacket(hostSock, &id, dataBuf, bytesIn, hostOverlayIPString,
-					destRealIPString, routerRealIPString, ttl, sourcePort, destPort);
-			usleep((*delayList)[deviceID][routerID]*1000);
-		}
+		FileSender* sender = new FileSender(d);
+		sender->send();
 	} else {
 		cout << "No file specified. Waiting for data." << endl;
 	}
 
 	cout << "Opening receive file... ";
-	rFile = fopen("received", "w");
+	rFile = fopen("received", "a+");
 	if (rFile == NULL) {
 		cout << "Receive file could not be opened. Exiting." << endl;
+		abort();
+	}
+	cout << "Done." << endl;
+
+	cout << "Opening receive_stats file... ";
+	stats.open("received_stats.txt", ifstream::out | ifstream::app);
+	if (!stats.good()) {
+		cout << "Receive Stats file could not be opened. Exiting." << endl;
 		abort();
 	}
 	cout << "Done." << endl;
@@ -180,7 +193,12 @@ int runHost(in_addr* _ip, int deviceID, int ttl, map<int, uint32_t>* idToRealIP,
 		//printPacket(p);
 		cout << "Recieved " << packetCount << " packets." << endl;
 
-		printPacket(p);
+		//printPacket(p);
+
+		stats << inet_ntoa(p->ip_header.ip_src);
+		stats << " " << inet_ntoa(p->ip_header.ip_dst);
+		stats << " " << p->udp_header.source;
+		stats << " " << p->udp_header.dest << endl;
 
 		usleep(50);
 
